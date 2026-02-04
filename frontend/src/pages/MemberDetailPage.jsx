@@ -1,0 +1,234 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { membersAPI } from '../api/members';
+import { useAuth } from '../hooks/useAuth';
+import Header from '../components/layout/Header';
+import Button from '../components/common/Button';
+import Select from '../components/common/Select';
+
+const MemberDetailPage = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { isAdmin } = useAuth();
+  const [member, setMember] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [newNote, setNewNote] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+
+  useEffect(() => {
+    loadMember();
+  }, [id]);
+
+  const loadMember = async () => {
+    setLoading(true);
+    try {
+      const data = await membersAPI.get(id);
+      setMember(data);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to load member');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (newStatus) => {
+    try {
+      await membersAPI.updateStatus(id, newStatus);
+      loadMember();
+    } catch (err) {
+      console.error('Failed to update status:', err);
+    }
+  };
+
+  const handleAddNote = async (e) => {
+    e.preventDefault();
+    if (!newNote.trim()) return;
+
+    setSavingNote(true);
+    try {
+      await membersAPI.addNote(id, newNote);
+      setNewNote('');
+      loadMember();
+    } catch (err) {
+      console.error('Failed to add note:', err);
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <div className="bg-red-50 p-4 rounded-lg">
+            <p className="text-red-800">{error}</p>
+            <Button className="mt-4" onClick={() => navigate(-1)}>
+              Go Back
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const statusColors = {
+    PENDING: 'bg-yellow-100 text-yellow-800',
+    ASSIGNED: 'bg-blue-100 text-blue-800',
+    VETTED: 'bg-green-100 text-green-800',
+    REJECTED: 'bg-red-100 text-red-800',
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4">
+          ← Back
+        </Button>
+
+        <div className="bg-white shadow rounded-lg p-6 mb-6">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {member.first_name} {member.last_name}
+              </h1>
+              <p className="text-gray-600">Application ID: {member.id}</p>
+            </div>
+            <span className={`px-3 py-1 text-sm font-medium rounded-full ${statusColors[member.status]}`}>
+              {member.status}
+            </span>
+          </div>
+
+          {/* Contact Information (PII - Decrypted) */}
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              Contact Information (PII - Decrypted)
+            </h2>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-yellow-800">
+                This information has been decrypted and logged in the audit trail.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Email</p>
+                <p className="font-medium">{member.email}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Phone Number</p>
+                <p className="font-medium">{member.phone_number}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="text-sm text-gray-600">Street Address</p>
+                <p className="font-medium">{member.street_address}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">City</p>
+                <p className="font-medium">{member.city}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Zip Code</p>
+                <p className="font-medium">{member.zip_code}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Application Responses */}
+          <div className="mb-6 border-t pt-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Application Responses</h2>
+            {member.occupational_background && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-600">Occupational Background</p>
+                <p className="font-medium whitespace-pre-wrap">{member.occupational_background}</p>
+              </div>
+            )}
+            {member.know_member && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-600">Member Connections</p>
+                <p className="font-medium whitespace-pre-wrap">{member.know_member}</p>
+              </div>
+            )}
+            {member.hoped_impact && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-600">Hoped Impact</p>
+                <p className="font-medium whitespace-pre-wrap">{member.hoped_impact}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Status Update */}
+          <div className="mb-6 border-t pt-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Update Status</h2>
+            <div className="flex gap-2">
+              {member.status !== 'VETTED' && (
+                <Button onClick={() => handleStatusChange('VETTED')}>
+                  Mark as Vetted
+                </Button>
+              )}
+              {member.status !== 'REJECTED' && (
+                <Button variant="danger" onClick={() => handleStatusChange('REJECTED')}>
+                  Reject
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Internal Notes */}
+          <div className="border-t pt-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Internal Notes</h2>
+
+            {member.notes && (
+              <div className="bg-gray-50 rounded-lg p-4 mb-4 max-h-64 overflow-y-auto">
+                <pre className="text-sm text-gray-700 whitespace-pre-wrap">{member.notes}</pre>
+              </div>
+            )}
+
+            <form onSubmit={handleAddNote}>
+              <textarea
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                placeholder="Add an internal note..."
+                rows="4"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+              <Button type="submit" disabled={savingNote || !newNote.trim()} className="mt-2">
+                {savingNote ? 'Adding Note...' : 'Add Note'}
+              </Button>
+            </form>
+          </div>
+        </div>
+
+        {/* Metadata */}
+        <div className="bg-white shadow rounded-lg p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Metadata</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-gray-600">Application Date</p>
+              <p className="font-medium">{new Date(member.created_at).toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-gray-600">Last Updated</p>
+              <p className="font-medium">{new Date(member.updated_at).toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default MemberDetailPage;
