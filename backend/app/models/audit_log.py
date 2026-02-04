@@ -8,7 +8,7 @@ class AuditLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    member_id = Column(Integer, ForeignKey("members.id"), nullable=False, index=True)
+    member_id = Column(Integer, ForeignKey("members.id"), nullable=True, index=True)  # Nullable for actions not related to specific members
     action = Column(String, nullable=False)
     details = Column(Text, nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

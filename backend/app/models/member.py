@@ -1,4 +1,5 @@
 import enum
+import json
 from sqlalchemy import Column, Integer, String, Enum, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.ext.hybrid import hybrid_property
 from datetime import datetime
@@ -29,9 +30,9 @@ class Member(Base):
     _street_address = Column("street_address", String, nullable=False)
     _phone_number = Column("phone_number", String, nullable=False)
     _email = Column("email", String, nullable=False)
-    _occupational_background = Column("occupational_background", Text, nullable=True)
-    _know_member = Column("know_member", Text, nullable=True)
-    _hoped_impact = Column("hoped_impact", Text, nullable=True)
+
+    # Encrypted JSON column for all custom fields
+    _custom_fields = Column("custom_fields", Text, nullable=True)
 
     # Blind index for email (for duplicate checking)
     email_blind_index = Column(String, index=True, nullable=False)
@@ -74,40 +75,18 @@ class Member(Base):
         self.email_blind_index = generate_blind_index(value)
 
     @hybrid_property
-    def occupational_background(self):
-        if self._occupational_background:
-            return encryption_service.decrypt(self._occupational_background)
-        return None
+    def custom_fields(self):
+        """Decrypt and parse custom fields JSON."""
+        if self._custom_fields:
+            decrypted = encryption_service.decrypt(self._custom_fields)
+            return json.loads(decrypted) if decrypted else {}
+        return {}
 
-    @occupational_background.setter
-    def occupational_background(self, value):
+    @custom_fields.setter
+    def custom_fields(self, value: dict):
+        """Encrypt custom fields as JSON."""
         if value:
-            self._occupational_background = encryption_service.encrypt(value)
+            json_str = json.dumps(value)
+            self._custom_fields = encryption_service.encrypt(json_str)
         else:
-            self._occupational_background = None
-
-    @hybrid_property
-    def know_member(self):
-        if self._know_member:
-            return encryption_service.decrypt(self._know_member)
-        return None
-
-    @know_member.setter
-    def know_member(self, value):
-        if value:
-            self._know_member = encryption_service.encrypt(value)
-        else:
-            self._know_member = None
-
-    @hybrid_property
-    def hoped_impact(self):
-        if self._hoped_impact:
-            return encryption_service.decrypt(self._hoped_impact)
-        return None
-
-    @hoped_impact.setter
-    def hoped_impact(self, value):
-        if value:
-            self._hoped_impact = encryption_service.encrypt(value)
-        else:
-            self._hoped_impact = None
+            self._custom_fields = None

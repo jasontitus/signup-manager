@@ -11,6 +11,7 @@ const MemberDetailPage = () => {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const [member, setMember] = useState(null);
+  const [formConfig, setFormConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [newNote, setNewNote] = useState('');
@@ -18,7 +19,18 @@ const MemberDetailPage = () => {
 
   useEffect(() => {
     loadMember();
+    loadFormConfig();
   }, [id]);
+
+  const loadFormConfig = async () => {
+    try {
+      const response = await fetch('/api/public/form-config');
+      const config = await response.json();
+      setFormConfig(config);
+    } catch (err) {
+      console.error('Failed to load form config:', err);
+    }
+  };
 
   const loadMember = async () => {
     setLoading(true);
@@ -120,10 +132,10 @@ const MemberDetailPage = () => {
             </span>
           </div>
 
-          {/* Contact Information (PII - Decrypted) */}
+          {/* Contact Information */}
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Contact Information (PII - Decrypted)
+              Contact Information
             </h2>
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
               <p className="text-sm text-yellow-800">
@@ -157,23 +169,20 @@ const MemberDetailPage = () => {
           {/* Application Responses */}
           <div className="mb-6 border-t pt-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Application Responses</h2>
-            {member.occupational_background && (
-              <div className="mb-4">
-                <p className="text-sm text-gray-600">Occupational Background</p>
-                <p className="font-medium whitespace-pre-wrap">{member.occupational_background}</p>
-              </div>
-            )}
-            {member.know_member && (
-              <div className="mb-4">
-                <p className="text-sm text-gray-600">Member Connections</p>
-                <p className="font-medium whitespace-pre-wrap">{member.know_member}</p>
-              </div>
-            )}
-            {member.hoped_impact && (
-              <div className="mb-4">
-                <p className="text-sm text-gray-600">Hoped Impact</p>
-                <p className="font-medium whitespace-pre-wrap">{member.hoped_impact}</p>
-              </div>
+            {formConfig && member.custom_fields && Object.keys(member.custom_fields).length > 0 ? (
+              formConfig.fields.map((fieldConfig) => {
+                const value = member.custom_fields[fieldConfig.key];
+                if (!value) return null;
+
+                return (
+                  <div key={fieldConfig.key} className="mb-4">
+                    <p className="text-sm text-gray-600">{fieldConfig.label}</p>
+                    <p className="font-medium whitespace-pre-wrap">{value}</p>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-gray-500 italic">No application responses provided</p>
             )}
           </div>
 

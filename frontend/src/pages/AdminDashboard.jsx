@@ -13,9 +13,9 @@ const AdminDashboard = () => {
   const [members, setMembers] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [selectedMember, setSelectedMember] = useState(null);
-  const [selectedVetter, setSelectedVetter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
   const [userFormOpen, setUserFormOpen] = useState(false);
   const [reclaimingStale, setReclaimingStale] = useState(false);
   const [reclaimMessage, setReclaimMessage] = useState('');
@@ -52,20 +52,6 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleAssign = async () => {
-    if (!selectedMember || !selectedVetter) return;
-
-    try {
-      await membersAPI.assign(selectedMember.id, parseInt(selectedVetter));
-      setAssignModalOpen(false);
-      setSelectedMember(null);
-      setSelectedVetter('');
-      loadMembers();
-    } catch (err) {
-      console.error('Failed to assign member:', err);
-    }
-  };
-
   const handleCreateUser = async (e) => {
     e.preventDefault();
     try {
@@ -93,6 +79,30 @@ const AdminDashboard = () => {
     } finally {
       setReclaimingStale(false);
     }
+  };
+
+  const handleSearch = async (query) => {
+    if (!query || query.trim().length === 0) {
+      setSearchResults([]);
+      setSearchQuery('');
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const results = await membersAPI.search(query);
+      setSearchResults(results);
+      setSearchQuery(query);
+    } catch (err) {
+      console.error('Failed to search members:', err);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   const pendingMembers = members.filter((m) => m.status === 'PENDING');
@@ -130,24 +140,17 @@ const AdminDashboard = () => {
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
               Pending Applications ({pendingMembers.length})
             </h2>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-blue-800">
+                Applications are automatically assigned to vetters when they log in. Vetters will receive the next pending application in the queue.
+              </p>
+            </div>
             {pendingMembers.length === 0 ? (
               <p className="text-gray-600">No pending applications</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {pendingMembers.map((member) => (
-                  <div key={member.id}>
-                    <MemberCard member={member} />
-                    <Button
-                      size="sm"
-                      className="w-full mt-2"
-                      onClick={() => {
-                        setSelectedMember(member);
-                        setAssignModalOpen(true);
-                      }}
-                    >
-                      Assign to Vetter
-                    </Button>
-                  </div>
+                  <MemberCard key={member.id} member={member} />
                 ))}
               </div>
             )}
@@ -178,22 +181,57 @@ const AdminDashboard = () => {
               </div>
             )}
 
-            <div className="mb-4 flex gap-4">
-              <div className="bg-white p-4 rounded-lg shadow flex-1">
-                <p className="text-sm text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">{pendingMembers.length}</p>
+            {/* Search Input */}
+            <div className="mb-4">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Search by name, location, notes, or custom fields..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (e.target.value.length >= 2) {
+                      handleSearch(e.target.value);
+                    } else if (e.target.value.length === 0) {
+                      clearSearch();
+                    }
+                  }}
+                  className="flex-1"
+                />
+                {searchQuery && (
+                  <Button onClick={clearSearch} variant="secondary">
+                    Clear
+                  </Button>
+                )}
               </div>
-              <div className="bg-white p-4 rounded-lg shadow flex-1">
-                <p className="text-sm text-gray-600">Assigned</p>
-                <p className="text-2xl font-bold text-blue-600">{assignedMembers.length}</p>
-              </div>
-              <div className="bg-white p-4 rounded-lg shadow flex-1">
-                <p className="text-sm text-gray-600">Vetted</p>
-                <p className="text-2xl font-bold text-green-600">{vettedMembers.length}</p>
-              </div>
+              {searching && (
+                <p className="text-sm text-gray-600 mt-2">Searching...</p>
+              )}
+              {searchQuery && !searching && (
+                <p className="text-sm text-gray-600 mt-2">
+                  Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+                </p>
+              )}
             </div>
+
+            {!searchQuery && (
+              <div className="mb-4 flex gap-4">
+                <div className="bg-white p-4 rounded-lg shadow flex-1">
+                  <p className="text-sm text-gray-600">Pending</p>
+                  <p className="text-2xl font-bold text-yellow-600">{pendingMembers.length}</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow flex-1">
+                  <p className="text-sm text-gray-600">Assigned</p>
+                  <p className="text-2xl font-bold text-blue-600">{assignedMembers.length}</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow flex-1">
+                  <p className="text-sm text-gray-600">Vetted</p>
+                  <p className="text-2xl font-bold text-green-600">{vettedMembers.length}</p>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {members.map((member) => (
+              {(searchQuery ? searchResults : members).map((member) => (
                 <MemberCard key={member.id} member={member} />
               ))}
             </div>
@@ -256,26 +294,6 @@ const AdminDashboard = () => {
           </div>
         )}
       </div>
-
-      {/* Assign Modal */}
-      <Modal
-        isOpen={assignModalOpen}
-        onClose={() => setAssignModalOpen(false)}
-        title="Assign to Vetter"
-      >
-        <Select
-          label="Select Vetter"
-          name="vetter"
-          value={selectedVetter}
-          onChange={(e) => setSelectedVetter(e.target.value)}
-          options={vetters.map((v) => ({ value: v.id, label: v.full_name }))}
-        />
-        <div className="mt-4">
-          <Button onClick={handleAssign} disabled={!selectedVetter} className="w-full">
-            Assign
-          </Button>
-        </div>
-      </Modal>
 
       {/* User Form Modal */}
       <Modal

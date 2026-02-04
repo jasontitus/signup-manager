@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from typing import List, Optional
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -8,7 +9,6 @@ from app.schemas.member import (
     MemberResponse,
     MemberDetailResponse,
     MemberUpdate,
-    MemberAssign,
     MemberNote
 )
 from app.dependencies import get_current_user, require_admin, check_member_access
@@ -41,6 +41,69 @@ def list_members(
 
     members = query.order_by(Member.created_at.desc()).all()
     return members
+
+
+@router.get("/search/query", response_model=List[MemberResponse])
+def search_members(
+    q: str = Query(..., min_length=1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Search members by name, location, notes, or custom fields.
+    Searches standard fields via DB query and custom fields via in-memory decryption.
+    """
+    # Log the search in audit log
+    audit_service.log_action(
+        db=db,
+        user_id=current_user.id,
+        member_id=None,
+        action="SEARCHED_MEMBERS",
+        details=f"Query: {q}"
+    )
+
+    search_term = f"%{q}%"
+
+    # Get base query with RBAC filtering
+    base_query = db.query(Member)
+    if current_user.role == UserRole.VETTER:
+        base_query = base_query.filter(Member.assigned_vetter_id == current_user.id)
+
+    # Search in standard fields including notes (DB query - fast)
+    db_matches = base_query.filter(
+        or_(
+            Member.first_name.ilike(search_term),
+            Member.last_name.ilike(search_term),
+            Member.city.ilike(search_term),
+            Member.zip_code.ilike(search_term),
+            Member.notes.ilike(search_term)
+        )
+    ).all()
+
+    # Get all members accessible to this user for custom field search
+    all_members = base_query.all()
+
+    # Search in custom fields (in-memory - slower but secure)
+    custom_matches = []
+    for member in all_members:
+        try:
+            custom_fields = member.custom_fields  # Auto-decrypts
+            # Search through all custom field values
+            for field_value in custom_fields.values():
+                if field_value and q.lower() in str(field_value).lower():
+                    custom_matches.append(member)
+                    break
+        except Exception as e:
+            # Log error but continue searching other members
+            print(f"Error searching custom fields for member {member.id}: {e}")
+
+    # Combine and deduplicate results
+    all_matches = list({m.id: m for m in (db_matches + custom_matches)}.values())
+
+    # Sort by creation date (newest first)
+    all_matches.sort(key=lambda m: m.created_at, reverse=True)
+
+    return all_matches
 
 
 @router.get("/{member_id}", response_model=MemberDetailResponse)
@@ -76,43 +139,6 @@ def get_member(
     return member
 
 
-@router.patch("/{member_id}/assign", response_model=MemberResponse)
-def assign_member(
-    member_id: int,
-    assignment: MemberAssign,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin)
-):
-    """Assign a member to a vetter (admin only)."""
-    member = db.query(Member).filter(Member.id == member_id).first()
-    if not member:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
-
-    # Verify vetter exists
-    vetter = db.query(User).filter(
-        User.id == assignment.vetter_id,
-        User.role == UserRole.VETTER,
-        User.is_active == True
-    ).first()
-    if not vetter:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vetter not found")
-
-    member.assigned_vetter_id = assignment.vetter_id
-    member.status = MemberStatus.ASSIGNED
-
-    # Log assignment
-    audit_service.log_action(
-        db=db,
-        user_id=current_user.id,
-        member_id=member.id,
-        action="ASSIGNED",
-        details=f"Assigned to vetter {vetter.username}"
-    )
-
-    db.commit()
-    db.refresh(member)
-
-    return member
 
 
 @router.patch("/{member_id}/status", response_model=MemberResponse)

@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { membersAPI } from '../api/members';
 import Input from '../components/common/Input';
 import Textarea from '../components/common/Textarea';
 import Button from '../components/common/Button';
+import DynamicFormField from '../components/common/DynamicFormField';
 import { thankYouConfig } from '../config/thankYouConfig';
 
 const PublicApplicationForm = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [formConfig, setFormConfig] = useState(null);
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -18,10 +20,26 @@ const PublicApplicationForm = () => {
     zip_code: '',
     phone_number: '',
     email: '',
-    occupational_background: '',
-    know_member: '',
-    hoped_impact: '',
   });
+
+  useEffect(() => {
+    // Fetch form config from backend
+    fetch('/api/public/form-config')
+      .then((res) => res.json())
+      .then((config) => {
+        setFormConfig(config);
+        // Initialize custom fields in form data
+        const customFields = {};
+        config.fields.forEach((field) => {
+          customFields[field.key] = '';
+        });
+        setFormData((prev) => ({ ...prev, ...customFields }));
+      })
+      .catch((err) => {
+        console.error('Failed to load form config:', err);
+        setError('Failed to load form configuration');
+      });
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -37,14 +55,7 @@ const PublicApplicationForm = () => {
     setLoading(true);
 
     try {
-      const submitData = {
-        ...formData,
-        occupational_background: formData.occupational_background || null,
-        know_member: formData.know_member || null,
-        hoped_impact: formData.hoped_impact || null,
-      };
-
-      await membersAPI.submitApplication(submitData);
+      await membersAPI.submitApplication(formData);
       setSuccess(true);
     } catch (err) {
       setError(err.response?.data?.detail || 'Application submission failed');
@@ -79,6 +90,15 @@ const PublicApplicationForm = () => {
             </p>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Show loading state while config is being fetched
+  if (!formConfig && !error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-600">Loading form...</div>
       </div>
     );
   }
@@ -153,27 +173,15 @@ const PublicApplicationForm = () => {
               />
             </div>
 
-            <Textarea
-              label="What is your occupational background? Feel free to share your LinkedIn if you like."
-              name="occupational_background"
-              value={formData.occupational_background}
-              onChange={handleChange}
-              placeholder="This helps us connect people to each other and to understand the skills and experience in the group."
-            />
-
-            <Textarea
-              label="Do you know someone who is a current member? If so, who?"
-              name="know_member"
-              value={formData.know_member}
-              onChange={handleChange}
-            />
-
-            <Textarea
-              label="What impact do you hope to have by joining? (If you don't know, that's OK)"
-              name="hoped_impact"
-              value={formData.hoped_impact}
-              onChange={handleChange}
-            />
+            {/* Dynamic custom fields from config */}
+            {formConfig?.fields.map((fieldConfig) => (
+              <DynamicFormField
+                key={fieldConfig.key}
+                fieldConfig={fieldConfig}
+                value={formData[fieldConfig.key]}
+                onChange={handleChange}
+              />
+            ))}
 
             {error && (
               <div className="rounded-md bg-red-50 p-4 mb-4">

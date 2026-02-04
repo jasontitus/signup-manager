@@ -5,7 +5,6 @@ from app.schemas.member import (
     MemberUpdate,
     MemberResponse,
     MemberDetailResponse,
-    MemberAssign,
     MemberNote,
 )
 
@@ -19,6 +18,5 @@ __all__ = [
     "MemberUpdate",
     "MemberResponse",
     "MemberDetailResponse",
-    "MemberAssign",
     "MemberNote",
 ]

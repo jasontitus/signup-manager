@@ -1,0 +1,33 @@
+{
+  "version": "1.0",
+  "fields": [
+    {
+      "key": "occupational_background",
+      "label": "What is your occupational background? Feel free to share your LinkedIn if you like.",
+      "type": "textarea",
+      "placeholder": "This helps us connect people to each other and to understand the skills and experience in the group.",
+      "required": false,
+      "validation": {
+        "maxLength": 1000
+      }
+    },
+    {
+      "key": "know_member",
+      "label": "Do you know someone who is a current member? If so, who?",
+      "type": "textarea",
+      "required": false,
+      "validation": {
+        "maxLength": 500
+      }
+    },
+    {
+      "key": "hoped_impact",
+      "label": "What impact do you hope to have by joining? (If you don't know, that's OK)",
+      "type": "textarea",
+      "required": false,
+      "validation": {
+        "maxLength": 1000
+      }
+    }
+  ]
+}

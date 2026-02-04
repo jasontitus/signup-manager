@@ -14,17 +14,17 @@ export const membersAPI = {
     return response.data;
   },
 
-  // Get member detail (with decrypted PII)
-  get: async (id) => {
-    const response = await client.get(`/members/${id}`);
+  // Search members
+  search: async (query) => {
+    const response = await client.get('/members/search/query', {
+      params: { q: query }
+    });
     return response.data;
   },
 
-  // Assign member to vetter
-  assign: async (memberId, vetterId) => {
-    const response = await client.patch(`/members/${memberId}/assign`, {
-      vetter_id: vetterId,
-    });
+  // Get member detail (with decrypted PII)
+  get: async (id) => {
+    const response = await client.get(`/members/${id}`);
     return response.data;
   },
 

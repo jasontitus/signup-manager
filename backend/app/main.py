@@ -38,13 +38,13 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(public.router, prefix="/api/v1")
-app.include_router(auth.router, prefix="/api/v1")
-app.include_router(users.router, prefix="/api/v1")
-app.include_router(members.router, prefix="/api/v1")
+app.include_router(public.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
+app.include_router(users.router, prefix="/api")
+app.include_router(members.router, prefix="/api")
 
 
-@app.get("/api/v1/health")
+@app.get("/api/health")
 def health_check():
     """Health check endpoint for Docker healthcheck."""
     return {"status": "healthy"}
