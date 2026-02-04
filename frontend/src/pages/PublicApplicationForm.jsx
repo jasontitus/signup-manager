@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { membersAPI } from '../api/members';
 import Input from '../components/common/Input';
 import Textarea from '../components/common/Textarea';
 import Button from '../components/common/Button';
+import { thankYouConfig } from '../config/thankYouConfig';
 
 const PublicApplicationForm = () => {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -74,11 +73,10 @@ const PublicApplicationForm = () => {
                 />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Application Submitted!</h2>
-            <p className="text-gray-600 mb-6">
-              Thank you for your application. We will review it and contact you soon.
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{thankYouConfig.title}</h2>
+            <p className="text-gray-600">
+              {thankYouConfig.message}
             </p>
-            <Button onClick={() => navigate('/')}>Return to Home</Button>
           </div>
         </div>
       </div>

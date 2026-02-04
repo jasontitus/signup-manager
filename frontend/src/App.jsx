@@ -9,7 +9,7 @@ import VetterDashboard from './pages/VetterDashboard';
 import MemberDetailPage from './pages/MemberDetailPage';
 import { useAuth } from './hooks/useAuth';
 
-const HomeRedirect = () => {
+const StaffRedirect = () => {
   const { user, isAdmin } = useAuth();
 
   if (!user) {
@@ -29,7 +29,7 @@ function App() {
       <AuthProvider>
         <Routes>
           {/* Public Routes */}
-          <Route path="/apply" element={<PublicApplicationForm />} />
+          <Route path="/" element={<PublicApplicationForm />} />
           <Route path="/login" element={<Login />} />
 
           {/* Protected Routes */}
@@ -58,10 +58,10 @@ function App() {
             }
           />
 
-          {/* Home Route */}
-          <Route path="/" element={<HomeRedirect />} />
+          {/* Staff redirect route */}
+          <Route path="/staff" element={<StaffRedirect />} />
 
-          {/* 404 */}
+          {/* 404 - redirect to home (signup form) */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
