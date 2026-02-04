@@ -3,11 +3,14 @@ import { membersAPI } from '../api/members';
 import Header from '../components/layout/Header';
 import MemberCard from '../components/members/MemberCard';
 import Select from '../components/common/Select';
+import Button from '../components/common/Button';
 
 const VetterDashboard = () => {
   const [members, setMembers] = useState([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(false);
+  const [gettingNext, setGettingNext] = useState(false);
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     loadMembers();
@@ -25,6 +28,25 @@ const VetterDashboard = () => {
     }
   };
 
+  const handleGetNextCandidate = async () => {
+    setGettingNext(true);
+    setMessage('');
+    try {
+      const nextMember = await membersAPI.getNextCandidate();
+      if (nextMember) {
+        setMessage('New candidate assigned!');
+        loadMembers(); // Reload the list to show the new assignment
+      } else {
+        setMessage('No pending candidates available.');
+      }
+    } catch (err) {
+      console.error('Failed to get next candidate:', err);
+      setMessage('Error getting next candidate.');
+    } finally {
+      setGettingNext(false);
+    }
+  };
+
   const assignedMembers = members.filter((m) => m.status === 'ASSIGNED');
   const vettedMembers = members.filter((m) => m.status === 'VETTED');
   const rejectedMembers = members.filter((m) => m.status === 'REJECTED');
@@ -35,7 +57,25 @@ const VetterDashboard = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">My Assigned Members</h1>
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-3xl font-bold text-gray-900">My Assigned Members</h1>
+            <Button
+              onClick={handleGetNextCandidate}
+              disabled={gettingNext}
+            >
+              {gettingNext ? 'Getting Next...' : 'Get Next Candidate'}
+            </Button>
+          </div>
+
+          {message && (
+            <div className={`mb-4 p-3 rounded ${
+              message.includes('Error') ? 'bg-red-100 text-red-700' :
+              message.includes('No pending') ? 'bg-yellow-100 text-yellow-700' :
+              'bg-green-100 text-green-700'
+            }`}>
+              {message}
+            </div>
+          )}
 
           <div className="flex gap-4 mb-6">
             <div className="bg-white p-4 rounded-lg shadow flex-1">

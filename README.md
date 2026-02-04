@@ -9,6 +9,7 @@ A secure membership application portal with strict role-based access control, fi
 - **Role-Based Access Control (RBAC)**:
   - Super Admin: Full access to all members and user management
   - Vetter: Access only to assigned members
+- **Automated Vetting Queue**: Auto-assignment of candidates to vetters with stale assignment reclamation
 - **Audit Logging**: All PII access is logged with user, timestamp, and action
 - **Public Application Form**: No authentication required for submitting applications
 - **Docker Deployment**: Containerized for easy deployment to Raspberry Pi
@@ -119,17 +120,27 @@ Anyone can submit an application at `/apply` (no login required).
 
 1. Login at `/login`
 2. View pending applications in the **Triage** tab
-3. Assign applications to vetters
+3. Manually assign applications to specific vetters (optional - auto-assignment handles this automatically)
 4. Manage all members in the **Database** tab
+   - Click "Reclaim Stale Assignments" to manually recover assignments from inactive vetters
 5. Manage users in the **Staff** tab
 
 ### Vetter Workflow
 
-1. Login at `/login`
+1. Login at `/login` - **Automatically assigned the first pending candidate**
 2. View assigned members in dashboard
 3. Click on a member to view details (PII is decrypted and logged)
 4. Add internal notes
-5. Update member status (Vetted/Rejected)
+5. Update member status (Vetted/Rejected) - **Automatically assigned next candidate**
+6. Click "Get Next Candidate" button to manually request additional assignments
+
+#### Auto-Assignment Features
+
+- **On Login**: Vetters are automatically assigned the first pending candidate when they log in
+- **On Completion**: When a vetter marks a candidate as VETTED or REJECTED, they're automatically assigned the next pending candidate
+- **Manual Request**: Vetters can click "Get Next Candidate" at any time to request another assignment
+- **FIFO Queue**: Candidates are assigned in order of application submission (oldest first)
+- **Stale Assignment Reclamation**: Candidates assigned for more than 7 days are automatically returned to the pending queue
 
 ## Security Features
 
@@ -161,13 +172,23 @@ Vetters can ONLY access members assigned to them:
 
 ### Audit Logging
 
-Every PII access is logged:
+Every PII access and assignment action is logged:
 - User who accessed
 - Member accessed
-- Action performed
+- Action performed (VIEWED_PII, AUTO_ASSIGNED, ASSIGNMENT_RECLAIMED, etc.)
 - Timestamp
+- Details
 
 View audit logs in the database `audit_logs` table.
+
+### Automated Queue Management
+
+The system automatically manages the vetting queue to ensure candidates don't get stuck:
+
+- **Auto-Assignment**: Vetters are automatically assigned candidates on login and after completing vetting
+- **Stale Detection**: Assignments older than 7 days are automatically reclaimed
+- **Queue Priority**: Candidates are assigned in FIFO order (oldest applications first)
+- **Manual Override**: Admins can manually reclaim stale assignments or assign specific candidates to specific vetters
 
 ## Testing
 

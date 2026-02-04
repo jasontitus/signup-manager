@@ -13,6 +13,7 @@ from app.schemas.member import (
 )
 from app.dependencies import get_current_user, require_admin, check_member_access
 from app.services.audit import audit_service
+from app.routers.auth import auto_assign_next_member, reclaim_stale_assignments
 
 router = APIRouter(prefix="/members", tags=["Members"])
 
@@ -146,6 +147,11 @@ def update_member_status(
             details=f"Status changed from {old_status} to {update.status}"
         )
 
+        # Auto-assign next member if vetter completed vetting
+        if (current_user.role == UserRole.VETTER and
+            update.status in [MemberStatus.VETTED, MemberStatus.REJECTED]):
+            auto_assign_next_member(db, current_user.id)
+
     db.commit()
     db.refresh(member)
 
@@ -194,3 +200,52 @@ def add_member_note(
     db.refresh(member)
 
     return member
+
+
+@router.post("/next-candidate", response_model=Optional[MemberResponse])
+def get_next_candidate(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the next pending candidate for vetting.
+    Automatically assigns the next member in queue to the current vetter.
+    Returns None if no pending candidates are available.
+    """
+    if current_user.role != UserRole.VETTER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only vetters can request next candidate"
+        )
+
+    next_member = auto_assign_next_member(db, current_user.id)
+
+    if not next_member:
+        return None
+
+    return next_member
+
+
+@router.post("/reclaim-stale")
+def reclaim_stale_assignments_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Manually trigger reclamation of stale assignments (admin only).
+    Members assigned for more than 7 days are reset to PENDING status.
+    """
+    reclaimed_count = reclaim_stale_assignments(db)
+
+    audit_service.log_action(
+        db=db,
+        user_id=current_user.id,
+        member_id=None,
+        action="MANUAL_STALE_RECLAIM",
+        details=f"Admin manually reclaimed {reclaimed_count} stale assignment(s)"
+    )
+
+    return {
+        "reclaimed_count": reclaimed_count,
+        "message": f"Successfully reclaimed {reclaimed_count} stale assignment(s)"
+    }

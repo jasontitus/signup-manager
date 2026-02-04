@@ -101,11 +101,28 @@ SELECT user_id, member_id, action, timestamp FROM audit_logs;
 3. Click "Add User"
 4. Set role to "Vetter"
 
-### Assign Application
+### Assign Application (Manual - Optional)
 1. Login as admin
 2. Go to "Triage" tab
 3. Click "Assign to Vetter"
 4. Select vetter from dropdown
+
+**Note**: Auto-assignment handles this automatically when vetters log in!
+
+### Vetter Workflow (Automated)
+1. Login as vetter → **Automatically assigned first pending candidate**
+2. Click on assigned member
+3. Review details, add notes
+4. Mark as "Vetted" or "Rejected" → **Automatically assigned next candidate**
+5. Or click "Get Next Candidate" to manually request another
+
+### Reclaim Stale Assignments (Admin)
+1. Login as admin
+2. Go to "Database" tab
+3. Click "Reclaim Stale Assignments"
+4. Candidates assigned >7 days are returned to pending queue
+
+**Note**: Stale assignments are automatically reclaimed when any vetter logs in!
 
 ### View Member Details
 1. Login (admin or vetter)
@@ -145,9 +162,11 @@ docker-compose restart backend
 ### Members
 - `GET /api/v1/members` - List (filtered by role)
 - `GET /api/v1/members/{id}` - Get with PII
-- `PATCH /api/v1/members/{id}/assign` - Assign to vetter
-- `PATCH /api/v1/members/{id}/status` - Update status
+- `PATCH /api/v1/members/{id}/assign` - Assign to vetter (manual)
+- `PATCH /api/v1/members/{id}/status` - Update status (auto-assigns next on completion)
 - `POST /api/v1/members/{id}/notes` - Add note
+- `POST /api/v1/members/next-candidate` - Get next candidate (vetter only, auto-assigns)
+- `POST /api/v1/members/reclaim-stale` - Reclaim stale assignments (admin only)
 
 ### Users (Admin Only)
 - `GET /api/v1/users` - List all
@@ -171,6 +190,7 @@ docker-compose restart backend
 |-----|---------|
 | **README.md** | Full documentation |
 | **QUICKSTART.md** | Getting started guide |
+| **VETTING_QUEUE.md** | Auto-assignment & stale reclamation |
 | **TEST_SCENARIOS.md** | 15 test scenarios |
 | **DEPLOYMENT_CHECKLIST.md** | Production deployment |
 | **STATUS.md** | Current project status |

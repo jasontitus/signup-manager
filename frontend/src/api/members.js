@@ -43,4 +43,16 @@ export const membersAPI = {
     });
     return response.data;
   },
+
+  // Get next pending candidate (auto-assigns to current vetter)
+  getNextCandidate: async () => {
+    const response = await client.post('/members/next-candidate');
+    return response.data;
+  },
+
+  // Reclaim stale assignments (admin only)
+  reclaimStaleAssignments: async () => {
+    const response = await client.post('/members/reclaim-stale');
+    return response.data;
+  },
 };

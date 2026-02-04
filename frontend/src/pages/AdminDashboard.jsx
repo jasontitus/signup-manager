@@ -17,6 +17,8 @@ const AdminDashboard = () => {
   const [selectedMember, setSelectedMember] = useState(null);
   const [selectedVetter, setSelectedVetter] = useState('');
   const [userFormOpen, setUserFormOpen] = useState(false);
+  const [reclaimingStale, setReclaimingStale] = useState(false);
+  const [reclaimMessage, setReclaimMessage] = useState('');
   const [newUser, setNewUser] = useState({
     username: '',
     password: '',
@@ -73,6 +75,23 @@ const AdminDashboard = () => {
       loadUsers();
     } catch (err) {
       console.error('Failed to create user:', err);
+    }
+  };
+
+  const handleReclaimStale = async () => {
+    setReclaimingStale(true);
+    setReclaimMessage('');
+    try {
+      const result = await membersAPI.reclaimStaleAssignments();
+      setReclaimMessage(result.message);
+      if (result.reclaimed_count > 0) {
+        loadMembers(); // Reload to show updated statuses
+      }
+    } catch (err) {
+      console.error('Failed to reclaim stale assignments:', err);
+      setReclaimMessage('Error reclaiming stale assignments');
+    } finally {
+      setReclaimingStale(false);
     }
   };
 
@@ -138,7 +157,27 @@ const AdminDashboard = () => {
         {/* Database Tab */}
         {activeTab === 'database' && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">All Members</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">All Members</h2>
+              <Button
+                onClick={handleReclaimStale}
+                disabled={reclaimingStale}
+                variant="secondary"
+              >
+                {reclaimingStale ? 'Checking...' : 'Reclaim Stale Assignments'}
+              </Button>
+            </div>
+
+            {reclaimMessage && (
+              <div className={`mb-4 p-3 rounded ${
+                reclaimMessage.includes('Error') ? 'bg-red-100 text-red-700' :
+                reclaimMessage.includes('0') ? 'bg-blue-100 text-blue-700' :
+                'bg-green-100 text-green-700'
+              }`}>
+                {reclaimMessage}
+              </div>
+            )}
+
             <div className="mb-4 flex gap-4">
               <div className="bg-white p-4 rounded-lg shadow flex-1">
                 <p className="text-sm text-gray-600">Pending</p>

@@ -35,7 +35,14 @@ const MemberDetailPage = () => {
   const handleStatusChange = async (newStatus) => {
     try {
       await membersAPI.updateStatus(id, newStatus);
-      loadMember();
+
+      // If vetter completed vetting (VETTED or REJECTED), redirect to dashboard
+      // They will see their next auto-assigned candidate there
+      if (newStatus === 'VETTED' || newStatus === 'REJECTED') {
+        navigate(-1);
+      } else {
+        loadMember();
+      }
     } catch (err) {
       console.error('Failed to update status:', err);
     }
