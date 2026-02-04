@@ -55,4 +55,10 @@ export const membersAPI = {
     const response = await client.post('/members/reclaim-stale');
     return response.data;
   },
+
+  // Delete member (admin only)
+  delete: async (memberId) => {
+    const response = await client.delete(`/members/${memberId}`);
+    return response.data;
+  },
 };

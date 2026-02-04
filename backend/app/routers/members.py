@@ -275,3 +275,34 @@ def reclaim_stale_assignments_endpoint(
         "reclaimed_count": reclaimed_count,
         "message": f"Successfully reclaimed {reclaimed_count} stale assignment(s)"
     }
+
+
+@router.delete("/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_member(
+    member_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Delete a member (admin only)."""
+    member = db.query(Member).filter(Member.id == member_id).first()
+    if not member:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
+
+    # Log deletion before removing the member
+    audit_service.log_action(
+        db=db,
+        user_id=current_user.id,
+        member_id=member.id,
+        action="MEMBER_DELETED",
+        details=f"Admin deleted member {member.first_name} {member.last_name} (ID: {member.id})"
+    )
+
+    # Delete related audit logs first (to handle foreign key constraint)
+    from app.models.audit_log import AuditLog
+    db.query(AuditLog).filter(AuditLog.member_id == member_id).delete()
+
+    # Delete the member
+    db.delete(member)
+    db.commit()
+
+    return None

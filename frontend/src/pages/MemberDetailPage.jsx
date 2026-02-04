@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import Header from '../components/layout/Header';
 import Button from '../components/common/Button';
 import Select from '../components/common/Select';
+import Modal from '../components/common/Modal';
 
 const MemberDetailPage = () => {
   const { id } = useParams();
@@ -16,6 +17,8 @@ const MemberDetailPage = () => {
   const [error, setError] = useState('');
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     loadMember();
@@ -74,6 +77,27 @@ const MemberDetailPage = () => {
     } finally {
       setSavingNote(false);
     }
+  };
+
+  const handleDeleteClick = () => {
+    setDeleteError('');
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      await membersAPI.delete(id);
+      navigate('/admin');
+    } catch (err) {
+      console.error('Failed to delete member:', err);
+      const errorMessage = err.response?.data?.detail || 'Failed to delete member. Please try again.';
+      setDeleteError(errorMessage);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirmOpen(false);
+    setDeleteError('');
   };
 
   if (loading) {
@@ -203,6 +227,19 @@ const MemberDetailPage = () => {
             </div>
           </div>
 
+          {/* Delete Member (Admin Only) */}
+          {isAdmin && (
+            <div className="mb-6 border-t pt-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Delete Member</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Permanently delete this member and all associated data. This action cannot be undone.
+              </p>
+              <Button variant="danger" onClick={handleDeleteClick}>
+                Delete Member
+              </Button>
+            </div>
+          )}
+
           {/* Internal Notes */}
           <div className="border-t pt-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Internal Notes</h2>
@@ -243,6 +280,41 @@ const MemberDetailPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteConfirmOpen}
+        onClose={handleDeleteCancel}
+        title="Confirm Delete Member"
+      >
+        <div>
+          <p className="text-gray-700 mb-4">
+            Are you sure you want to delete <strong>{member.first_name} {member.last_name}</strong>?
+            This will permanently remove all data including encrypted PII and audit logs.
+            This action cannot be undone.
+          </p>
+          {deleteError && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {deleteError}
+            </div>
+          )}
+          <div className="flex gap-3">
+            <Button
+              onClick={handleDeleteConfirm}
+              className="flex-1 bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </Button>
+            <Button
+              onClick={handleDeleteCancel}
+              variant="secondary"
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
