@@ -186,7 +186,7 @@ def update_member_status(
     return member
 
 
-@router.post("/{member_id}/notes", response_model=MemberResponse)
+@router.post("/{member_id}/notes", response_model=MemberDetailResponse)
 def add_member_note(
     member_id: int,
     note_data: MemberNote,
