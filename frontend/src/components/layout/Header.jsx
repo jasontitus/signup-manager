@@ -17,7 +17,14 @@ const Header = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
           <div>
-            <h1 className="text-2xl font-bold text-primary-600">Membership Portal</h1>
+            <h1 className="text-2xl font-bold text-primary-600">
+              <button
+                onClick={() => navigate('/staff')}
+                className="hover:text-primary-700 transition-colors cursor-pointer"
+              >
+                Membership Portal
+              </button>
+            </h1>
             {user && (
               <p className="text-sm text-gray-600">
                 Logged in as: {user.full_name} ({isAdmin() ? 'Admin' : 'Vetter'})
