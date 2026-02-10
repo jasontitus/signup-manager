@@ -1,0 +1,289 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ============================================================
+# Signup Manager - GCP Instance Installer
+# ============================================================
+# Installs and deploys the Signup Manager on a fresh GCP
+# Compute Engine instance running Debian or Ubuntu.
+#
+# Usage:
+#   chmod +x gcp-install.sh
+#   sudo ./gcp-install.sh
+#
+# What this script does:
+#   1. Installs Docker and Docker Compose
+#   2. Generates cryptographic keys
+#   3. Creates .env with secure defaults
+#   4. Sets up the data directory
+#   5. Opens firewall ports (80, 443)
+#   6. Builds and starts containers
+#   7. Installs a systemd service for auto-start on boot
+# ============================================================
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+log()  { echo -e "${GREEN}[+]${NC} $1"; }
+warn() { echo -e "${YELLOW}[!]${NC} $1"; }
+err()  { echo -e "${RED}[x]${NC} $1"; exit 1; }
+
+# ----------------------------------------------------------
+# Pre-flight checks
+# ----------------------------------------------------------
+if [[ $EUID -ne 0 ]]; then
+    err "This script must be run as root (use sudo)."
+fi
+
+# Detect OS
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS_ID="${ID}"
+else
+    err "Cannot detect OS. This script supports Debian and Ubuntu."
+fi
+
+case "$OS_ID" in
+    debian|ubuntu) ;;
+    *) err "Unsupported OS: $OS_ID. This script supports Debian and Ubuntu." ;;
+esac
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+echo ""
+echo -e "${BOLD}=========================================${NC}"
+echo -e "${BOLD} Signup Manager - GCP Installer${NC}"
+echo -e "${BOLD}=========================================${NC}"
+echo ""
+
+# ----------------------------------------------------------
+# 1. Install Docker
+# ----------------------------------------------------------
+if command -v docker &>/dev/null; then
+    log "Docker already installed: $(docker --version)"
+else
+    log "Installing Docker..."
+    apt-get update -qq
+    apt-get install -y -qq ca-certificates curl gnupg lsb-release >/dev/null
+
+    install -m 0755 -d /etc/apt/keyrings
+    if [ "$OS_ID" = "ubuntu" ]; then
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg 2>/dev/null
+        chmod a+r /etc/apt/keyrings/docker.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
+    else
+        curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg 2>/dev/null
+        chmod a+r /etc/apt/keyrings/docker.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
+    fi
+
+    apt-get update -qq
+    apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin >/dev/null
+    systemctl enable docker
+    systemctl start docker
+    log "Docker installed: $(docker --version)"
+fi
+
+# Add the calling user to docker group (if run via sudo)
+if [ -n "${SUDO_USER:-}" ]; then
+    usermod -aG docker "$SUDO_USER" 2>/dev/null || true
+fi
+
+# ----------------------------------------------------------
+# 2. Generate security keys and create .env
+# ----------------------------------------------------------
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    warn ".env already exists — skipping key generation."
+    warn "To regenerate, delete .env and re-run this script."
+else
+    log "Generating cryptographic keys..."
+
+    # Generate keys using Python (available in most GCP images)
+    if ! command -v python3 &>/dev/null; then
+        apt-get install -y -qq python3 python3-pip >/dev/null
+        pip3 install -q cryptography
+    fi
+
+    # Install cryptography if missing
+    python3 -c "from cryptography.fernet import Fernet" 2>/dev/null || \
+        pip3 install -q cryptography
+
+    KEYS=$(python3 -c "
+from cryptography.fernet import Fernet
+import secrets
+print(f'{secrets.token_hex(32)}')
+print(f'{Fernet.generate_key().decode()}')
+print(f'{secrets.token_hex(16)}')
+")
+    SECRET_KEY=$(echo "$KEYS" | sed -n '1p')
+    ENCRYPTION_KEY=$(echo "$KEYS" | sed -n '2p')
+    BLIND_INDEX_SALT=$(echo "$KEYS" | sed -n '3p')
+
+    # Prompt for admin password or generate one
+    if [ -t 0 ]; then
+        echo ""
+        read -r -s -p "Set admin password (leave blank to auto-generate): " ADMIN_PASS
+        echo ""
+    fi
+
+    if [ -z "${ADMIN_PASS:-}" ]; then
+        ADMIN_PASS=$(python3 -c "import secrets; print(secrets.token_urlsafe(16))")
+        warn "Generated admin password: $ADMIN_PASS"
+        warn "Save this password — it will not be shown again."
+    fi
+
+    cat > "$SCRIPT_DIR/.env" <<EOF
+# Security Keys (auto-generated by gcp-install.sh)
+SECRET_KEY=${SECRET_KEY}
+ENCRYPTION_KEY=${ENCRYPTION_KEY}
+EMAIL_BLIND_INDEX_SALT=${BLIND_INDEX_SALT}
+
+# First Run Admin User
+FIRST_RUN_ADMIN_USER=admin
+FIRST_RUN_ADMIN_PASSWORD=${ADMIN_PASS}
+
+# Database
+DATABASE_URL=sqlite:////app/data/members.db
+
+# CORS — set to your domain or external IP
+FRONTEND_URL=http://localhost
+
+# JWT Settings
+JWT_ALGORITHM=HS256
+JWT_EXPIRATION_MINUTES=480
+EOF
+
+    chmod 600 "$SCRIPT_DIR/.env"
+    log ".env created with secure keys."
+fi
+
+# ----------------------------------------------------------
+# 3. Set up data directory
+# ----------------------------------------------------------
+DATA_DIR="/mnt/secure_data"
+if [ ! -d "$DATA_DIR" ]; then
+    log "Creating data directory at $DATA_DIR..."
+    mkdir -p "$DATA_DIR"
+fi
+chmod 700 "$DATA_DIR"
+
+# Set ownership to the calling user if run via sudo
+if [ -n "${SUDO_USER:-}" ]; then
+    chown "$SUDO_USER":"$SUDO_USER" "$DATA_DIR"
+fi
+
+log "Data directory ready: $DATA_DIR"
+
+# ----------------------------------------------------------
+# 4. Configure firewall
+# ----------------------------------------------------------
+if command -v ufw &>/dev/null; then
+    log "Configuring firewall (ufw)..."
+    ufw allow 22/tcp  >/dev/null 2>&1 || true
+    ufw allow 80/tcp  >/dev/null 2>&1 || true
+    ufw allow 443/tcp >/dev/null 2>&1 || true
+    ufw --force enable >/dev/null 2>&1 || true
+    log "Firewall configured (ports 22, 80, 443 open)."
+else
+    warn "ufw not found — skipping firewall setup."
+    warn "Ensure GCP firewall rules allow HTTP (80) and HTTPS (443)."
+fi
+
+# ----------------------------------------------------------
+# 5. Build and deploy
+# ----------------------------------------------------------
+log "Building and starting containers (this may take a few minutes on first run)..."
+cd "$SCRIPT_DIR"
+docker compose up -d --build
+
+# ----------------------------------------------------------
+# 6. Set up systemd service for auto-start
+# ----------------------------------------------------------
+SERVICE_FILE="/etc/systemd/system/signup-manager.service"
+if [ ! -f "$SERVICE_FILE" ]; then
+    log "Installing systemd service for auto-start on boot..."
+    cat > "$SERVICE_FILE" <<EOF
+[Unit]
+Description=Signup Manager Application
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=${SCRIPT_DIR}
+ExecStart=/usr/bin/docker compose up -d
+ExecStop=/usr/bin/docker compose down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable signup-manager.service
+    log "Systemd service installed and enabled."
+fi
+
+# ----------------------------------------------------------
+# 7. Verify deployment
+# ----------------------------------------------------------
+log "Waiting for services to start..."
+sleep 5
+
+HEALTHY=false
+for i in 1 2 3 4 5 6; do
+    if curl -sf http://localhost:8000/api/health >/dev/null 2>&1; then
+        HEALTHY=true
+        break
+    fi
+    sleep 5
+done
+
+echo ""
+echo -e "${BOLD}=========================================${NC}"
+if $HEALTHY; then
+    echo -e "${GREEN}${BOLD} Deployment successful!${NC}"
+else
+    echo -e "${YELLOW}${BOLD} Containers started (health check pending)${NC}"
+    echo -e "  Run: docker compose logs -f"
+fi
+echo -e "${BOLD}=========================================${NC}"
+echo ""
+
+# Get the external IP if possible
+EXTERNAL_IP=$(curl -sf -H "Metadata-Flavor: Google" \
+    http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip 2>/dev/null || echo "")
+
+if [ -n "$EXTERNAL_IP" ]; then
+    echo -e "  Frontend:  ${BOLD}http://${EXTERNAL_IP}${NC}"
+    echo -e "  API Docs:  ${BOLD}http://${EXTERNAL_IP}/api/docs${NC}"
+    echo ""
+    warn "Update FRONTEND_URL in .env to http://${EXTERNAL_IP} for CORS,"
+    warn "then restart: docker compose restart backend"
+else
+    echo -e "  Frontend:  ${BOLD}http://<YOUR-INSTANCE-IP>${NC}"
+    echo -e "  API Docs:  ${BOLD}http://<YOUR-INSTANCE-IP>/api/docs${NC}"
+fi
+
+echo ""
+echo -e "  Admin user:     ${BOLD}admin${NC}"
+if [ -n "${ADMIN_PASS:-}" ]; then
+    echo -e "  Admin password: ${BOLD}${ADMIN_PASS}${NC}"
+fi
+echo ""
+echo -e "${BOLD}GCP Firewall Reminder:${NC}"
+echo "  Ensure your VPC firewall allows ingress on port 80 (HTTP)."
+echo "  gcloud compute firewall-rules create allow-http \\"
+echo "    --allow tcp:80 --target-tags http-server"
+echo ""
+echo -e "${BOLD}Next steps:${NC}"
+echo "  1. Open http://<INSTANCE-IP> in your browser"
+echo "  2. Log in with the admin credentials above"
+echo "  3. Change the admin password after first login"
+echo "  4. Create vetter accounts as needed"
+echo ""
