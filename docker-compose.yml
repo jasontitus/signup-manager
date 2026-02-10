@@ -13,6 +13,7 @@ services:
       - .env
     environment:
       - DATABASE_URL=sqlite:////app/data/members.db
+      - VAULT_FILE=/app/data/.vault
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
@@ -28,6 +29,4 @@ services:
       - "80:80"
     depends_on:
       - backend
-    environment:
-      - VITE_API_URL=http://localhost:8000
     restart: unless-stopped
