@@ -1,6 +1,8 @@
-# Environment variables
+# Environment variables and vault
 .env
 .env.local
+.vault
+*.vault
 
 # Python
 __pycache__/

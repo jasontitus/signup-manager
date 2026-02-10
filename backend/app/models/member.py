@@ -1,6 +1,6 @@
 import enum
 import json
-from sqlalchemy import Column, Integer, String, Enum, DateTime, ForeignKey, Text, Boolean
+from sqlalchemy import Column, Integer, String, Enum, DateTime, ForeignKey, Text
 from sqlalchemy.ext.hybrid import hybrid_property
 from datetime import datetime
 from app.database import Base
@@ -20,13 +20,11 @@ class Member(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    # Public fields (not encrypted)
-    first_name = Column(String, nullable=False)
-    last_name = Column(String, nullable=False)
-    city = Column(String, nullable=False)
-    zip_code = Column(String, nullable=False)
-
-    # Encrypted PII fields (stored encrypted)
+    # All PII fields stored encrypted
+    _first_name = Column("first_name", String, nullable=False)
+    _last_name = Column("last_name", String, nullable=False)
+    _city = Column("city", String, nullable=False)
+    _zip_code = Column("zip_code", String, nullable=False)
     _street_address = Column("street_address", String, nullable=False)
     _phone_number = Column("phone_number", String, nullable=False)
     _email = Column("email", String, nullable=False)
@@ -49,6 +47,38 @@ class Member(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     # Hybrid properties for transparent encryption/decryption
+    @hybrid_property
+    def first_name(self):
+        return encryption_service.decrypt(self._first_name)
+
+    @first_name.setter
+    def first_name(self, value):
+        self._first_name = encryption_service.encrypt(value)
+
+    @hybrid_property
+    def last_name(self):
+        return encryption_service.decrypt(self._last_name)
+
+    @last_name.setter
+    def last_name(self, value):
+        self._last_name = encryption_service.encrypt(value)
+
+    @hybrid_property
+    def city(self):
+        return encryption_service.decrypt(self._city)
+
+    @city.setter
+    def city(self, value):
+        self._city = encryption_service.encrypt(value)
+
+    @hybrid_property
+    def zip_code(self):
+        return encryption_service.decrypt(self._zip_code)
+
+    @zip_code.setter
+    def zip_code(self, value):
+        self._zip_code = encryption_service.encrypt(value)
+
     @hybrid_property
     def street_address(self):
         return encryption_service.decrypt(self._street_address)

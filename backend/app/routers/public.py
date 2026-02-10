@@ -85,20 +85,16 @@ def submit_application(application: dict, db: Session = Depends(get_db)):
         if value:
             custom_fields[key] = value
 
-    # Create new member (encryption happens automatically via hybrid properties)
-    member = Member(
-        first_name=standard_fields.first_name,
-        last_name=standard_fields.last_name,
-        city=standard_fields.city,
-        zip_code=standard_fields.zip_code,
-        status=MemberStatus.PENDING
-    )
-
-    # Set encrypted fields via hybrid properties (must be set after construction)
-    member.street_address = standard_fields.street_address  # Auto-encrypted
-    member.phone_number = standard_fields.phone_number  # Auto-encrypted
-    member.email = standard_fields.email  # Auto-encrypted + blind index
-    member.custom_fields = custom_fields  # Auto-encrypted as JSON
+    # Create new member — all PII set via hybrid properties for encryption
+    member = Member(status=MemberStatus.PENDING)
+    member.first_name = standard_fields.first_name
+    member.last_name = standard_fields.last_name
+    member.city = standard_fields.city
+    member.zip_code = standard_fields.zip_code
+    member.street_address = standard_fields.street_address
+    member.phone_number = standard_fields.phone_number
+    member.email = standard_fields.email  # Also sets blind index
+    member.custom_fields = custom_fields
 
     db.add(member)
     db.commit()

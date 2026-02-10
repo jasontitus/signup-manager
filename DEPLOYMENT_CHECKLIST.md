@@ -9,6 +9,61 @@
 - [ ] Backed up encryption key to secure location
 - [ ] Reviewed all TODO/FIXME comments in code
 
+## GCP Compute Engine (Automated)
+
+The fastest way to deploy on a GCP instance. Handles Docker installation,
+key generation, firewall setup, and systemd auto-start.
+
+### 1. Create a GCP Instance
+
+```bash
+gcloud compute instances create signup-manager \
+  --zone=us-central1-a \
+  --machine-type=e2-small \
+  --image-family=debian-12 \
+  --image-project=debian-cloud \
+  --boot-disk-size=20GB \
+  --tags=http-server
+```
+
+### 2. Allow HTTP Traffic
+
+```bash
+gcloud compute firewall-rules create allow-http \
+  --allow tcp:80 \
+  --target-tags http-server
+```
+
+### 3. SSH In and Install
+
+```bash
+gcloud compute ssh signup-manager --zone=us-central1-a
+
+# Clone or copy the project
+git clone <your-repo-url> ~/signup-manager
+cd ~/signup-manager
+
+# Run the installer
+sudo ./gcp-install.sh
+```
+
+The script will:
+- Install Docker and Docker Compose
+- Generate cryptographic keys and create `.env`
+- Set up `/mnt/secure_data` for the database
+- Build and start the containers
+- Install a systemd service so it survives reboots
+
+### 4. Post-Install
+
+- [ ] Note the admin password printed by the installer
+- [ ] Update `FRONTEND_URL` in `.env` to `http://<EXTERNAL-IP>`
+- [ ] Restart backend: `docker compose restart backend`
+- [ ] Open `http://<EXTERNAL-IP>` in your browser
+- [ ] Log in and change the admin password
+
+---
+
 ## Raspberry Pi Setup
 
 ### 1. System Preparation
@@ -77,7 +132,7 @@ docker-compose logs backend
 docker-compose logs frontend
 
 # Test health endpoint
-curl http://localhost:8000/api/v1/health
+curl http://localhost:8000/api/health
 ```
 
 - [ ] All containers running

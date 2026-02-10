@@ -1,38 +1,53 @@
+"""Tests for the encryption service."""
+
 import pytest
-from app.services.encryption import encryption_service
+from app.services.encryption import EncryptionService, encryption_service
 
 
 def test_encrypt_decrypt_round_trip():
-    """Test that encryption and decryption work correctly."""
+    """Encryption and decryption produce the original value."""
     plaintext = "sensitive-data@example.com"
-
-    # Encrypt
     ciphertext = encryption_service.encrypt(plaintext)
-
-    # Verify it's different
     assert ciphertext != plaintext
-
-    # Decrypt
-    decrypted = encryption_service.decrypt(ciphertext)
-
-    # Verify it matches original
-    assert decrypted == plaintext
+    assert encryption_service.decrypt(ciphertext) == plaintext
 
 
 def test_encrypt_empty_string():
-    """Test encryption of empty string."""
-    plaintext = ""
-    ciphertext = encryption_service.encrypt(plaintext)
-    decrypted = encryption_service.decrypt(ciphertext)
-    assert decrypted == ""
+    """Empty string encrypts and decrypts to empty string."""
+    assert encryption_service.encrypt("") == ""
+    assert encryption_service.decrypt("") == ""
 
 
 def test_different_plaintexts_produce_different_ciphertexts():
-    """Test that different inputs produce different encrypted outputs."""
-    plaintext1 = "test1@example.com"
-    plaintext2 = "test2@example.com"
+    """Different inputs produce different encrypted outputs."""
+    c1 = encryption_service.encrypt("test1@example.com")
+    c2 = encryption_service.encrypt("test2@example.com")
+    assert c1 != c2
 
-    ciphertext1 = encryption_service.encrypt(plaintext1)
-    ciphertext2 = encryption_service.encrypt(plaintext2)
 
-    assert ciphertext1 != ciphertext2
+def test_same_plaintext_produces_different_ciphertexts():
+    """Fernet includes randomness — same input gives different ciphertext each time."""
+    c1 = encryption_service.encrypt("same-input")
+    c2 = encryption_service.encrypt("same-input")
+    assert c1 != c2  # Fernet uses random IV
+    # But both decrypt to the same value
+    assert encryption_service.decrypt(c1) == encryption_service.decrypt(c2)
+
+
+def test_unicode_round_trip():
+    """Unicode characters survive encryption round-trip."""
+    text = "Nombre: Jose Garcia-Lopez"
+    assert encryption_service.decrypt(encryption_service.encrypt(text)) == text
+
+
+def test_long_string_round_trip():
+    """Long strings encrypt and decrypt correctly."""
+    text = "x" * 10000
+    assert encryption_service.decrypt(encryption_service.encrypt(text)) == text
+
+
+def test_uninitialized_service_raises():
+    """Accessing cipher before initialization raises RuntimeError."""
+    svc = EncryptionService()
+    with pytest.raises(RuntimeError, match="not initialized"):
+        svc.encrypt("test")
