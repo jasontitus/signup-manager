@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { membersAPI } from '../api/members';
 import { usersAPI } from '../api/users';
+import { AuthContext } from '../context/AuthContext';
 import Header from '../components/layout/Header';
 import MemberCard from '../components/members/MemberCard';
 import Button from '../components/common/Button';
@@ -9,6 +10,7 @@ import Select from '../components/common/Select';
 import Modal from '../components/common/Modal';
 
 const AdminDashboard = () => {
+  const { user: currentUser } = useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('triage');
   const [members, setMembers] = useState([]);
   const [users, setUsers] = useState([]);
@@ -17,6 +19,9 @@ const AdminDashboard = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [userFormOpen, setUserFormOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
   const [reclaimingStale, setReclaimingStale] = useState(false);
   const [reclaimMessage, setReclaimMessage] = useState('');
   const [newUser, setNewUser] = useState({
@@ -62,6 +67,33 @@ const AdminDashboard = () => {
     } catch (err) {
       console.error('Failed to create user:', err);
     }
+  };
+
+  const handleDeleteClick = (user) => {
+    setUserToDelete(user);
+    setDeleteError('');
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!userToDelete) return;
+
+    try {
+      await usersAPI.delete(userToDelete.id);
+      setDeleteConfirmOpen(false);
+      setUserToDelete(null);
+      loadUsers();
+    } catch (err) {
+      console.error('Failed to delete user:', err);
+      const errorMessage = err.response?.data?.detail || 'Failed to delete user. Please try again.';
+      setDeleteError(errorMessage);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirmOpen(false);
+    setUserToDelete(null);
+    setDeleteError('');
   };
 
   const handleReclaimStale = async () => {
@@ -261,6 +293,9 @@ const AdminDashboard = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Status
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -285,6 +320,16 @@ const AdminDashboard = () => {
                         >
                           {user.is_active ? 'Active' : 'Inactive'}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {user.id !== currentUser?.id && (
+                          <button
+                            onClick={() => handleDeleteClick(user)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -338,6 +383,40 @@ const AdminDashboard = () => {
             Create User
           </Button>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteConfirmOpen}
+        onClose={handleDeleteCancel}
+        title="Confirm Delete User"
+      >
+        <div>
+          <p className="text-gray-700 mb-4">
+            Are you sure you want to delete user <strong>{userToDelete?.username}</strong>?
+            This action cannot be undone.
+          </p>
+          {deleteError && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {deleteError}
+            </div>
+          )}
+          <div className="flex gap-3">
+            <Button
+              onClick={handleDeleteConfirm}
+              className="flex-1 bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </Button>
+            <Button
+              onClick={handleDeleteCancel}
+              variant="secondary"
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
