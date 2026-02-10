@@ -2,6 +2,25 @@
   "version": "1.0",
   "fields": [
     {
+      "key": "where_learn",
+      "label": "Where did you learn about IPA+?",
+      "type": "text",
+      "required": false,
+      "validation": {
+        "maxLength": 200
+      }
+    },
+    {
+      "key": "superpower",
+      "label": "What personal talent, skill, experience, or superpower do you bring to the group?",
+      "type": "textarea",
+      "placeholder": "We believe everyone has a superpower!",
+      "required": false,
+      "validation": {
+        "maxLength": 1000
+      }
+    },
+    {
       "key": "occupational_background",
       "label": "What is your occupational background? Feel free to share your LinkedIn if you like.",
       "type": "textarea",
