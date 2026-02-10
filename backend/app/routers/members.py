@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
 from typing import List, Optional
 from app.database import get_db
 from app.models.user import User, UserRole
@@ -51,7 +50,8 @@ def search_members(
 ):
     """
     Search members by name, location, notes, or custom fields.
-    Searches standard fields via DB query and custom fields via in-memory decryption.
+    All PII fields are encrypted, so search is done in-memory after decryption.
+    Notes are searched via DB query (not encrypted).
     """
     # Log the search in audit log
     audit_service.log_action(
@@ -62,48 +62,50 @@ def search_members(
         details=f"Query: {q}"
     )
 
-    search_term = f"%{q}%"
-
     # Get base query with RBAC filtering
     base_query = db.query(Member)
     if current_user.role == UserRole.VETTER:
         base_query = base_query.filter(Member.assigned_vetter_id == current_user.id)
 
-    # Search in standard fields including notes (DB query - fast)
-    db_matches = base_query.filter(
-        or_(
-            Member.first_name.ilike(search_term),
-            Member.last_name.ilike(search_term),
-            Member.city.ilike(search_term),
-            Member.zip_code.ilike(search_term),
-            Member.notes.ilike(search_term)
-        )
-    ).all()
+    # Notes are not encrypted — search via DB for efficiency
+    search_term = f"%{q}%"
+    note_matches = set(
+        m.id for m in base_query.filter(Member.notes.ilike(search_term)).all()
+    )
 
-    # Get all members accessible to this user for custom field search
+    # All PII is encrypted — search in-memory after decryption
     all_members = base_query.all()
+    q_lower = q.lower()
+    matches = []
 
-    # Search in custom fields (in-memory - slower but secure)
-    custom_matches = []
     for member in all_members:
+        # Already matched by notes query
+        if member.id in note_matches:
+            matches.append(member)
+            continue
+
+        # Search decrypted PII fields
+        if (q_lower in member.first_name.lower()
+                or q_lower in member.last_name.lower()
+                or q_lower in member.city.lower()
+                or q_lower in member.zip_code.lower()):
+            matches.append(member)
+            continue
+
+        # Search custom fields
         try:
-            custom_fields = member.custom_fields  # Auto-decrypts
-            # Search through all custom field values
+            custom_fields = member.custom_fields
             for field_value in custom_fields.values():
-                if field_value and q.lower() in str(field_value).lower():
-                    custom_matches.append(member)
+                if field_value and q_lower in str(field_value).lower():
+                    matches.append(member)
                     break
         except Exception as e:
-            # Log error but continue searching other members
             print(f"Error searching custom fields for member {member.id}: {e}")
 
-    # Combine and deduplicate results
-    all_matches = list({m.id: m for m in (db_matches + custom_matches)}.values())
-
     # Sort by creation date (newest first)
-    all_matches.sort(key=lambda m: m.created_at, reverse=True)
+    matches.sort(key=lambda m: m.created_at, reverse=True)
 
-    return all_matches
+    return matches
 
 
 @router.get("/{member_id}", response_model=MemberDetailResponse)

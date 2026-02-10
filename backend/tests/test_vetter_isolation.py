@@ -7,11 +7,20 @@ from app.database import Base, get_db
 from app.models.user import User, UserRole
 from app.models.member import Member, MemberStatus
 from app.services.auth import hash_password
+from app.services.encryption import encryption_service
+from app.config import settings
 
 # Setup test database
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Initialize encryption for tests if not already done
+if settings.ENCRYPTION_KEY:
+    try:
+        encryption_service.initialize(settings.ENCRYPTION_KEY)
+    except Exception:
+        pass  # Already initialized
 
 Base.metadata.create_all(bind=engine)
 
@@ -26,6 +35,19 @@ def override_get_db():
 
 app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
+
+
+def create_test_member(first_name, last_name, city, zip_code, email, status, assigned_vetter_id):
+    """Helper to create a Member with all encrypted fields set via hybrid properties."""
+    member = Member(status=status, assigned_vetter_id=assigned_vetter_id)
+    member.first_name = first_name
+    member.last_name = last_name
+    member.city = city
+    member.zip_code = zip_code
+    member.street_address = "123 Test St"
+    member.phone_number = "555-0000"
+    member.email = email
+    return member
 
 
 @pytest.fixture
@@ -56,30 +78,17 @@ def setup_test_data():
     db.refresh(vetter2)
 
     # Create two members, one assigned to each vetter
-    member1 = Member(
-        first_name="John",
-        last_name="Doe",
-        street_address="123 Main St",
-        phone_number="555-0001",
+    member1 = create_test_member(
+        first_name="John", last_name="Doe",
+        city="Springfield", zip_code="62701",
         email="john@example.com",
-        branch_of_service="Army",
-        rank="Sergeant",
-        years_of_service="5",
-        currently_serving=True,
         status=MemberStatus.ASSIGNED,
         assigned_vetter_id=vetter1.id
     )
-
-    member2 = Member(
-        first_name="Jane",
-        last_name="Smith",
-        street_address="456 Oak Ave",
-        phone_number="555-0002",
+    member2 = create_test_member(
+        first_name="Jane", last_name="Smith",
+        city="Shelbyville", zip_code="62702",
         email="jane@example.com",
-        branch_of_service="Navy",
-        rank="Lieutenant",
-        years_of_service="8",
-        currently_serving=True,
         status=MemberStatus.ASSIGNED,
         assigned_vetter_id=vetter2.id
     )
@@ -87,6 +96,8 @@ def setup_test_data():
     db.add(member1)
     db.add(member2)
     db.commit()
+    db.refresh(member1)
+    db.refresh(member2)
 
     yield {
         "vetter1_id": vetter1.id,
@@ -107,7 +118,7 @@ def test_vetter_cannot_access_other_vetter_member(setup_test_data):
     data = setup_test_data
 
     # Login as vetter1
-    response = client.post("/api/v1/auth/login", json={
+    response = client.post("/api/auth/login", json={
         "username": "vetter1",
         "password": "password123"
     })
@@ -116,7 +127,7 @@ def test_vetter_cannot_access_other_vetter_member(setup_test_data):
 
     # Try to access member2 (assigned to vetter2)
     response = client.get(
-        f"/api/v1/members/{data['member2_id']}",
+        f"/api/members/{data['member2_id']}",
         headers={"Authorization": f"Bearer {token1}"}
     )
 
@@ -130,7 +141,7 @@ def test_vetter_list_only_shows_assigned_members(setup_test_data):
     data = setup_test_data
 
     # Login as vetter1
-    response = client.post("/api/v1/auth/login", json={
+    response = client.post("/api/auth/login", json={
         "username": "vetter1",
         "password": "password123"
     })
@@ -139,7 +150,7 @@ def test_vetter_list_only_shows_assigned_members(setup_test_data):
 
     # Get member list
     response = client.get(
-        "/api/v1/members",
+        "/api/members",
         headers={"Authorization": f"Bearer {token1}"}
     )
 
@@ -156,7 +167,7 @@ def test_vetter_can_access_assigned_member(setup_test_data):
     data = setup_test_data
 
     # Login as vetter1
-    response = client.post("/api/v1/auth/login", json={
+    response = client.post("/api/auth/login", json={
         "username": "vetter1",
         "password": "password123"
     })
@@ -165,7 +176,7 @@ def test_vetter_can_access_assigned_member(setup_test_data):
 
     # Access member1 (assigned to vetter1)
     response = client.get(
-        f"/api/v1/members/{data['member1_id']}",
+        f"/api/members/{data['member1_id']}",
         headers={"Authorization": f"Bearer {token1}"}
     )
 
