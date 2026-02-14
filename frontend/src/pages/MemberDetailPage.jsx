@@ -14,6 +14,13 @@ const MemberDetailPage = () => {
   const location = useLocation();
   const { isAdmin } = useAuth();
   const backPath = location.state?.from || '/admin';
+  const searchQuery = location.state?.searchQuery;
+  const resultIds = location.state?.resultIds;
+  const currentIndex = location.state?.currentIndex;
+  const tab = location.state?.tab;
+  const hasSearchContext = resultIds && resultIds.length > 0;
+  const prevId = hasSearchContext && currentIndex > 0 ? resultIds[currentIndex - 1] : null;
+  const nextId = hasSearchContext && currentIndex < resultIds.length - 1 ? resultIds[currentIndex + 1] : null;
   const [member, setMember] = useState(null);
   const [formConfig, setFormConfig] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -57,7 +64,7 @@ const MemberDetailPage = () => {
       // If vetter completed vetting (VETTED or REJECTED), redirect to dashboard
       // They will see their next auto-assigned candidate there
       if (newStatus === 'VETTED' || newStatus === 'REJECTED') {
-        navigate(backPath);
+        navigate(backPath, { state: { tab, searchQuery } });
       } else {
         loadMember();
       }
@@ -121,7 +128,7 @@ const MemberDetailPage = () => {
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="bg-red-50 p-4 rounded-lg">
             <p className="text-red-800">{error}</p>
-            <Button className="mt-4" onClick={() => navigate(backPath)}>
+            <Button className="mt-4" onClick={() => navigate(backPath, { state: { tab, searchQuery } })}>
               Go Back
             </Button>
           </div>
@@ -142,9 +149,35 @@ const MemberDetailPage = () => {
       <Header />
 
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <Button variant="ghost" onClick={() => navigate(backPath)} className="mb-4">
+        <Button variant="ghost" onClick={() => navigate(backPath, { state: { tab, searchQuery } })} className="mb-4">
           ← Back
         </Button>
+
+        {hasSearchContext && (
+          <div className="flex items-center justify-between bg-white shadow rounded-lg px-4 py-3 mb-4">
+            <button
+              onClick={() => prevId && navigate(`/members/${prevId}`, {
+                state: { from: backPath, tab, searchQuery, resultIds, currentIndex: currentIndex - 1 }
+              })}
+              disabled={!prevId}
+              className={`text-sm font-medium px-3 py-1 rounded ${prevId ? 'text-primary-600 hover:bg-primary-50' : 'text-gray-300 cursor-not-allowed'}`}
+            >
+              ← Prev
+            </button>
+            <span className="text-sm text-gray-600">
+              Result {currentIndex + 1} of {resultIds.length} for "{searchQuery}"
+            </span>
+            <button
+              onClick={() => nextId && navigate(`/members/${nextId}`, {
+                state: { from: backPath, tab, searchQuery, resultIds, currentIndex: currentIndex + 1 }
+              })}
+              disabled={!nextId}
+              className={`text-sm font-medium px-3 py-1 rounded ${nextId ? 'text-primary-600 hover:bg-primary-50' : 'text-gray-300 cursor-not-allowed'}`}
+            >
+              Next →
+            </button>
+          </div>
+        )}
 
         <div className="bg-white shadow rounded-lg p-6 mb-6">
           <div className="flex justify-between items-start mb-6">

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const MemberCard = ({ member }) => {
+const MemberCard = ({ member, searchContext, tab }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -14,7 +14,15 @@ const MemberCard = ({ member }) => {
 
   return (
     <div
-      onClick={() => navigate(`/members/${member.id}`, { state: { from: location.pathname } })}
+      onClick={() => navigate(`/members/${member.id}`, {
+        state: {
+          from: location.pathname,
+          tab,
+          searchQuery: searchContext?.query,
+          resultIds: searchContext?.resultIds,
+          currentIndex: searchContext?.currentIndex,
+        }
+      })}
       className="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
     >
       <div className="flex justify-between items-start mb-2">

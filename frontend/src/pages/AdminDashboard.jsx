@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { useLocation } from 'react-router-dom';
 import { membersAPI } from '../api/members';
 import { usersAPI } from '../api/users';
 import { AuthContext } from '../context/AuthContext';
@@ -11,11 +12,12 @@ import Modal from '../components/common/Modal';
 
 const AdminDashboard = () => {
   const { user: currentUser } = useContext(AuthContext);
-  const [activeTab, setActiveTab] = useState('triage');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(location.state?.tab || 'triage');
   const [members, setMembers] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(location.state?.searchQuery || '');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [userFormOpen, setUserFormOpen] = useState(false);
@@ -34,6 +36,9 @@ const AdminDashboard = () => {
   useEffect(() => {
     loadMembers();
     loadUsers();
+    if (location.state?.searchQuery) {
+      handleSearch(location.state.searchQuery);
+    }
   }, []);
 
   const loadMembers = async () => {
@@ -182,7 +187,7 @@ const AdminDashboard = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {pendingMembers.map((member) => (
-                  <MemberCard key={member.id} member={member} />
+                  <MemberCard key={member.id} member={member} tab="triage" />
                 ))}
               </div>
             )}
@@ -263,8 +268,17 @@ const AdminDashboard = () => {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(searchQuery ? searchResults : members).map((member) => (
-                <MemberCard key={member.id} member={member} />
+              {(searchQuery ? searchResults : members).map((member, index) => (
+                <MemberCard
+                  key={member.id}
+                  member={member}
+                  tab="database"
+                  searchContext={searchQuery ? {
+                    query: searchQuery,
+                    resultIds: searchResults.map(m => m.id),
+                    currentIndex: index,
+                  } : undefined}
+                />
               ))}
             </div>
           </div>
