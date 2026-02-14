@@ -1,8 +1,9 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const MemberCard = ({ member }) => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const statusColors = {
     PENDING: 'bg-yellow-100 text-yellow-800',
@@ -13,7 +14,7 @@ const MemberCard = ({ member }) => {
 
   return (
     <div
-      onClick={() => navigate(`/members/${member.id}`)}
+      onClick={() => navigate(`/members/${member.id}`, { state: { from: location.pathname } })}
       className="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
     >
       <div className="flex justify-between items-start mb-2">

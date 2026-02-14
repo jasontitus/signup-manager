@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { membersAPI } from '../api/members';
 import { useAuth } from '../hooks/useAuth';
 import Header from '../components/layout/Header';
@@ -11,7 +11,9 @@ import FECContributions from '../components/members/FECContributions';
 const MemberDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isAdmin } = useAuth();
+  const backPath = location.state?.from || '/admin';
   const [member, setMember] = useState(null);
   const [formConfig, setFormConfig] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -55,7 +57,7 @@ const MemberDetailPage = () => {
       // If vetter completed vetting (VETTED or REJECTED), redirect to dashboard
       // They will see their next auto-assigned candidate there
       if (newStatus === 'VETTED' || newStatus === 'REJECTED') {
-        navigate(-1);
+        navigate(backPath);
       } else {
         loadMember();
       }
@@ -119,7 +121,7 @@ const MemberDetailPage = () => {
         <div className="max-w-4xl mx-auto px-4 py-8">
           <div className="bg-red-50 p-4 rounded-lg">
             <p className="text-red-800">{error}</p>
-            <Button className="mt-4" onClick={() => navigate(-1)}>
+            <Button className="mt-4" onClick={() => navigate(backPath)}>
               Go Back
             </Button>
           </div>
@@ -140,7 +142,7 @@ const MemberDetailPage = () => {
       <Header />
 
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4">
+        <Button variant="ghost" onClick={() => navigate(backPath)} className="mb-4">
           ← Back
         </Button>
 
