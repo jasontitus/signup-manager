@@ -16,6 +16,7 @@ Example:
 
 import argparse
 import csv
+import getpass
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -28,7 +29,28 @@ from app.models.member import Member, MemberStatus
 from app.models.audit_log import AuditLog
 from app.services.encryption import encryption_service
 from app.services.blind_index import generate_blind_index
+from app.vault import vault_manager
+from app.config import settings, load_secrets_from_vault
 from sqlalchemy.orm import Session
+
+
+def unlock_vault():
+    """Unlock the vault interactively, or skip if encryption is already configured."""
+    if settings.ENCRYPTION_KEY:
+        encryption_service.initialize(settings.ENCRYPTION_KEY)
+        return
+
+    if not vault_manager.vault_exists():
+        print("Error: No .vault file found and no ENCRYPTION_KEY in environment.")
+        sys.exit(1)
+
+    password = getpass.getpass("Master password: ")
+    if not vault_manager.unlock(password):
+        print("Error: Invalid master password.")
+        sys.exit(1)
+
+    load_secrets_from_vault(vault_manager.secrets)
+    encryption_service.initialize(settings.ENCRYPTION_KEY)
 
 
 def parse_name(full_name: str) -> tuple[str, str]:
@@ -134,17 +156,17 @@ def import_csv(
                     # Determine status
                     status = MemberStatus.VETTED if is_vetted else MemberStatus.PENDING
 
-                    # Create member (only with non-hybrid fields)
+                    # Create member with non-hybrid fields only
                     member = Member(
-                        first_name=first_name,
-                        last_name=last_name,
-                        city=city,
-                        zip_code=zip_code,
                         status=status,
                         assigned_vetter_id=vetter_id if is_vetted and vetter_id else None
                     )
 
                     # Set encrypted fields via hybrid properties
+                    member.first_name = first_name
+                    member.last_name = last_name
+                    member.city = city
+                    member.zip_code = zip_code
                     member.street_address = street_address
                     member.phone_number = phone_number
                     member.email = email  # This also sets the blind index
@@ -202,6 +224,9 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Unlock vault / initialize encryption
+    unlock_vault()
 
     # Check if file exists
     if not Path(args.csv_file).exists():
