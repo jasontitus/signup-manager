@@ -25,11 +25,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: development
+      target: production
+      args:
+        - VITE_BASE_PATH=/signup/
     ports:
-      - "3000:5173"
-    environment:
-      - VITE_BASE_PATH=/signup/
+      - "3000:80"
     depends_on:
       - backend
     restart: unless-stopped

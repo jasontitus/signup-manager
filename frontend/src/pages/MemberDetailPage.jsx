@@ -6,6 +6,7 @@ import Header from '../components/layout/Header';
 import Button from '../components/common/Button';
 import Select from '../components/common/Select';
 import Modal from '../components/common/Modal';
+import FECContributions from '../components/members/FECContributions';
 
 const MemberDetailPage = () => {
   const { id } = useParams();
@@ -209,6 +210,13 @@ const MemberDetailPage = () => {
               <p className="text-gray-500 italic">No application responses provided</p>
             )}
           </div>
+
+          {/* Campaign Contributions */}
+          <FECContributions
+            firstName={member.first_name}
+            lastName={member.last_name}
+            zipCode={member.zip_code}
+          />
 
           {/* Status Update */}
           <div className="mb-6 border-t pt-6">
