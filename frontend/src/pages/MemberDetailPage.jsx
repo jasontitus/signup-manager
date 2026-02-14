@@ -27,7 +27,7 @@ const MemberDetailPage = () => {
 
   const loadFormConfig = async () => {
     try {
-      const response = await fetch('/api/public/form-config');
+      const response = await fetch(`${import.meta.env.BASE_URL}api/public/form-config`);
       const config = await response.json();
       setFormConfig(config);
     } catch (err) {

@@ -24,7 +24,7 @@ const PublicApplicationForm = () => {
 
   useEffect(() => {
     // Fetch form config from backend
-    fetch('/api/public/form-config')
+    fetch(`${import.meta.env.BASE_URL}api/public/form-config`)
       .then((res) => res.json())
       .then((config) => {
         setFormConfig(config);

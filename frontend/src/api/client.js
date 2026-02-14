@@ -1,11 +1,9 @@
 import axios from 'axios';
 
-// Use relative URL in development so Vite proxy handles it
-// In production, VITE_API_URL should be set to the actual API URL
-const API_URL = import.meta.env.VITE_API_URL || '';
+const baseUrl = import.meta.env.BASE_URL;
 
 const client = axios.create({
-  baseURL: API_URL ? `${API_URL}/api` : '/api',
+  baseURL: `${baseUrl}api`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -32,7 +30,7 @@ client.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      window.location.href = `${baseUrl}login`;
     }
     return Promise.reject(error);
   }
