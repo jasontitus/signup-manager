@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 
+const isDebugApi = () =>
+  import.meta.env.VITE_DEBUG_API === 'true' ||
+  localStorage.getItem('debug_api') === 'true';
+
 const FECContributions = ({ firstName, lastName, zipCode }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -17,13 +21,39 @@ const FECContributions = ({ firstName, lastName, zipCode }) => {
     setLoading(true);
     setError('');
 
-    fetch(`/contributions/api/person?${params}`)
+    const debug = isDebugApi();
+    const url = `/contributions/api/person?${params}`;
+    const startTime = performance.now();
+
+    if (debug) {
+      const paramKeys = Array.from(params.keys()).join(', ');
+      console.debug(`[FEC API] GET /contributions/api/person params=[${paramKeys}]`);
+    }
+
+    fetch(url)
       .then((res) => {
+        if (debug) {
+          const elapsed = (performance.now() - startTime).toFixed(0);
+          console.debug(`[FEC API] Response: ${res.status} in ${elapsed}ms`);
+        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
-      .then((json) => setData(json))
-      .catch((err) => setError(err.message))
+      .then((json) => {
+        if (debug) {
+          const fecCount = json?.fec?.contributions?.length ?? 0;
+          const caCount = json?.ca?.contributions?.length ?? 0;
+          console.debug(`[FEC API] Payload: ${fecCount} FEC + ${caCount} CA contributions`);
+        }
+        setData(json);
+      })
+      .catch((err) => {
+        if (debug) {
+          const elapsed = (performance.now() - startTime).toFixed(0);
+          console.debug(`[FEC API] Error after ${elapsed}ms: ${err.message}`);
+        }
+        setError(err.message);
+      })
       .finally(() => setLoading(false));
   }, [firstName, lastName, zipCode]);
 
