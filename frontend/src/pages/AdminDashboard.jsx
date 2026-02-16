@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { membersAPI } from '../api/members';
 import { usersAPI } from '../api/users';
+import { tagsAPI } from '../api/tags';
 import { AuthContext } from '../context/AuthContext';
 import Header from '../components/layout/Header';
 import MemberCard from '../components/members/MemberCard';
@@ -42,10 +43,23 @@ const AdminDashboard = () => {
     full_name: '',
   });
 
+  // Tag management state
+  const [tagCategories, setTagCategories] = useState([]);
+  const [loadingTags, setLoadingTags] = useState(false);
+  const [tagModalOpen, setTagModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [tagForm, setTagForm] = useState({ key: '', label: '', options: [''], multiple: false });
+  const [tagFormError, setTagFormError] = useState('');
+  const [tagDeleteConfirmOpen, setTagDeleteConfirmOpen] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [deleteUsage, setDeleteUsage] = useState(null);
+  const [loadingUsage, setLoadingUsage] = useState(false);
+
   useEffect(() => {
     loadMembers();
     loadUsers();
     loadTagConfig();
+    if (activeTab === 'tags') loadTagCategories();
     if (location.state?.searchQuery) {
       handleSearch(location.state.searchQuery);
     }
@@ -200,6 +214,129 @@ const AdminDashboard = () => {
     setSearchResults([]);
   };
 
+  // Tag management handlers
+  const loadTagCategories = async () => {
+    setLoadingTags(true);
+    try {
+      const config = await tagsAPI.getConfig();
+      setTagCategories(config.categories || []);
+    } catch (err) {
+      console.error('Failed to load tag categories:', err);
+    } finally {
+      setLoadingTags(false);
+    }
+  };
+
+  const openAddTagModal = () => {
+    setEditingCategory(null);
+    setTagForm({ key: '', label: '', options: [''], multiple: false });
+    setTagFormError('');
+    setTagModalOpen(true);
+  };
+
+  const openEditTagModal = (category) => {
+    setEditingCategory(category);
+    setTagForm({
+      key: category.key,
+      label: category.label,
+      options: [...category.options],
+      multiple: category.multiple,
+    });
+    setTagFormError('');
+    setTagModalOpen(true);
+  };
+
+  const handleTagFormOptionChange = (index, value) => {
+    setTagForm((prev) => {
+      const options = [...prev.options];
+      options[index] = value;
+      return { ...prev, options };
+    });
+  };
+
+  const addTagFormOption = () => {
+    setTagForm((prev) => ({ ...prev, options: [...prev.options, ''] }));
+  };
+
+  const removeTagFormOption = (index) => {
+    setTagForm((prev) => ({
+      ...prev,
+      options: prev.options.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleTagFormSave = async () => {
+    setTagFormError('');
+    const trimmedOptions = tagForm.options.map((o) => o.trim()).filter(Boolean);
+    if (!tagForm.label.trim()) {
+      setTagFormError('Label is required');
+      return;
+    }
+    if (trimmedOptions.length === 0) {
+      setTagFormError('At least one option is required');
+      return;
+    }
+
+    try {
+      if (editingCategory) {
+        await tagsAPI.updateCategory(editingCategory.key, {
+          label: tagForm.label.trim(),
+          options: trimmedOptions,
+          multiple: tagForm.multiple,
+        });
+      } else {
+        if (!tagForm.key.trim()) {
+          setTagFormError('Key is required');
+          return;
+        }
+        await tagsAPI.addCategory({
+          key: tagForm.key.trim(),
+          label: tagForm.label.trim(),
+          options: trimmedOptions,
+          multiple: tagForm.multiple,
+        });
+      }
+      setTagModalOpen(false);
+      loadTagCategories();
+      loadTagConfig(); // refresh filters too
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        setTagFormError(detail.map((d) => d.msg).join(', '));
+      } else {
+        setTagFormError(detail || 'Failed to save category');
+      }
+    }
+  };
+
+  const openDeleteTagConfirm = async (category) => {
+    setCategoryToDelete(category);
+    setDeleteUsage(null);
+    setLoadingUsage(true);
+    setTagDeleteConfirmOpen(true);
+    try {
+      const usage = await tagsAPI.getOptionUsage(category.key);
+      setDeleteUsage(usage);
+    } catch (err) {
+      console.error('Failed to load usage:', err);
+    } finally {
+      setLoadingUsage(false);
+    }
+  };
+
+  const handleDeleteTagConfirm = async () => {
+    if (!categoryToDelete) return;
+    try {
+      await tagsAPI.deleteCategory(categoryToDelete.key);
+      setTagDeleteConfirmOpen(false);
+      setCategoryToDelete(null);
+      loadTagCategories();
+      loadTagConfig();
+    } catch (err) {
+      console.error('Failed to delete category:', err);
+    }
+  };
+
   const loadContacts = async () => {
     setLoadingContacts(true);
     try {
@@ -269,10 +406,13 @@ const AdminDashboard = () => {
         {/* Tabs */}
         <div className="border-b border-gray-200 mb-6">
           <nav className="-mb-px flex space-x-8">
-            {['triage', 'database', 'staff'].map((tab) => (
+            {['triage', 'database', 'staff', 'tags'].map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  setActiveTab(tab);
+                  if (tab === 'tags' && tagCategories.length === 0) loadTagCategories();
+                }}
                 className={`${
                   activeTab === tab
                     ? 'border-primary-500 text-primary-600'
@@ -532,6 +672,57 @@ const AdminDashboard = () => {
           </div>
         )}
 
+        {/* Tags Tab */}
+        {activeTab === 'tags' && (
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">Tag Management</h2>
+              <Button onClick={openAddTagModal}>Add Category</Button>
+            </div>
+            {loadingTags ? (
+              <p className="text-gray-600">Loading tag categories...</p>
+            ) : tagCategories.length === 0 ? (
+              <p className="text-gray-600">No tag categories configured.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {tagCategories.map((cat) => (
+                  <div key={cat.key} className="bg-white rounded-lg shadow p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{cat.label}</h3>
+                        <p className="text-sm text-gray-500 font-mono">{cat.key}</p>
+                      </div>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        cat.multiple ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {cat.multiple ? 'Multi-select' : 'Single-select'}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {cat.options.map((option) => (
+                        <span
+                          key={option}
+                          className="px-2.5 py-1 text-sm bg-gray-100 text-gray-700 rounded-full"
+                        >
+                          {option}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex gap-2 border-t pt-3">
+                      <Button size="sm" variant="secondary" onClick={() => openEditTagModal(cat)}>
+                        Edit
+                      </Button>
+                      <Button size="sm" variant="danger" onClick={() => openDeleteTagConfirm(cat)}>
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Staff Tab */}
         {activeTab === 'staff' && (
           <div>
@@ -672,6 +863,135 @@ const AdminDashboard = () => {
             </Button>
             <Button
               onClick={handleDeleteCancel}
+              variant="secondary"
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Tag Add/Edit Modal */}
+      <Modal
+        isOpen={tagModalOpen}
+        onClose={() => setTagModalOpen(false)}
+        title={editingCategory ? `Edit Category: ${editingCategory.label}` : 'Add Tag Category'}
+      >
+        <div>
+          {tagFormError && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {tagFormError}
+            </div>
+          )}
+          <Input
+            label="Key"
+            name="tagKey"
+            value={tagForm.key}
+            onChange={(e) => setTagForm({ ...tagForm, key: e.target.value })}
+            placeholder="e.g. interest_area"
+            required
+            disabled={!!editingCategory}
+            className={editingCategory ? 'opacity-60' : ''}
+          />
+          <Input
+            label="Label"
+            name="tagLabel"
+            value={tagForm.label}
+            onChange={(e) => setTagForm({ ...tagForm, label: e.target.value })}
+            placeholder="e.g. Interest Area"
+            required
+          />
+          <div className="mb-4">
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                checked={tagForm.multiple}
+                onChange={(e) => setTagForm({ ...tagForm, multiple: e.target.checked })}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              Allow multiple selections
+            </label>
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Options <span className="text-red-500">*</span>
+            </label>
+            {tagForm.options.map((option, index) => (
+              <div key={index} className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={option}
+                  onChange={(e) => handleTagFormOptionChange(index, e.target.value)}
+                  placeholder={`Option ${index + 1}`}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                />
+                {tagForm.options.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeTagFormOption(index)}
+                    className="px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addTagFormOption}
+              className="text-sm text-primary-600 hover:text-primary-800 font-medium"
+            >
+              + Add option
+            </button>
+          </div>
+          <Button onClick={handleTagFormSave} className="w-full">
+            {editingCategory ? 'Save Changes' : 'Create Category'}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Tag Delete Confirmation Modal */}
+      <Modal
+        isOpen={tagDeleteConfirmOpen}
+        onClose={() => { setTagDeleteConfirmOpen(false); setCategoryToDelete(null); }}
+        title="Delete Tag Category"
+      >
+        <div>
+          <p className="text-gray-700 mb-4">
+            Are you sure you want to delete the <strong>{categoryToDelete?.label}</strong> category?
+          </p>
+          {loadingUsage ? (
+            <p className="text-sm text-gray-500 mb-4">Checking usage...</p>
+          ) : deleteUsage && deleteUsage.total_members_using > 0 ? (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+              <p className="text-sm font-medium text-yellow-800 mb-2">
+                {deleteUsage.total_members_using} member{deleteUsage.total_members_using !== 1 ? 's' : ''} currently use tags from this category:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(deleteUsage.usage).filter(([, count]) => count > 0).map(([option, count]) => (
+                  <span key={option} className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                    {option}: {count}
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs text-yellow-700 mt-2">
+                Existing member data will be preserved, but this category will no longer appear as a choice.
+              </p>
+            </div>
+          ) : deleteUsage ? (
+            <p className="text-sm text-gray-500 mb-4">No members are using tags from this category.</p>
+          ) : null}
+          <div className="flex gap-3">
+            <Button
+              onClick={handleDeleteTagConfirm}
+              className="flex-1 bg-red-600 hover:bg-red-700"
+              disabled={loadingUsage}
+            >
+              Delete
+            </Button>
+            <Button
+              onClick={() => { setTagDeleteConfirmOpen(false); setCategoryToDelete(null); }}
               variant="secondary"
               className="flex-1"
             >

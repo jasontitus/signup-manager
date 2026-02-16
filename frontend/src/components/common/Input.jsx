@@ -8,6 +8,7 @@ const Input = ({
   onChange,
   placeholder,
   required = false,
+  disabled = false,
   error,
   className = '',
 }) => {
@@ -26,9 +27,10 @@ const Input = ({
         onChange={onChange}
         placeholder={placeholder}
         required={required}
+        disabled={disabled}
         className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
           error ? 'border-red-500' : 'border-gray-300'
-        }`}
+        } ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}
       />
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>

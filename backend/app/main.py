@@ -9,7 +9,7 @@ from app.config import settings
 from app.database import engine, Base, SessionLocal
 from app.utils.db_init import create_first_admin
 from app.services.encryption import encryption_service
-from app.routers import auth, public, users, members
+from app.routers import auth, public, users, members, tags
 from app.routers import unlock as unlock_router
 from app.vault import vault_manager
 
@@ -116,6 +116,7 @@ app.include_router(public.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(members.router, prefix="/api")
+app.include_router(tags.router, prefix="/api")
 
 
 @app.get("/api/health")
