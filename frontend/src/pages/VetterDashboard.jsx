@@ -50,6 +50,7 @@ const VetterDashboard = () => {
   const assignedMembers = members.filter((m) => m.status === 'ASSIGNED');
   const vettedMembers = members.filter((m) => m.status === 'VETTED');
   const rejectedMembers = members.filter((m) => m.status === 'REJECTED');
+  const unsureMembers = members.filter((m) => m.status === 'UNSURE');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -87,6 +88,10 @@ const VetterDashboard = () => {
               <p className="text-2xl font-bold text-green-600">{vettedMembers.length}</p>
             </div>
             <div className="bg-white p-4 rounded-lg shadow flex-1">
+              <p className="text-sm text-gray-600">Unsure</p>
+              <p className="text-2xl font-bold text-orange-600">{unsureMembers.length}</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow flex-1">
               <p className="text-sm text-gray-600">Rejected</p>
               <p className="text-2xl font-bold text-red-600">{rejectedMembers.length}</p>
             </div>
@@ -102,6 +107,7 @@ const VetterDashboard = () => {
                 { value: '', label: 'All' },
                 { value: 'ASSIGNED', label: 'Assigned' },
                 { value: 'VETTED', label: 'Vetted' },
+                { value: 'UNSURE', label: 'Unsure' },
                 { value: 'REJECTED', label: 'Rejected' },
               ]}
             />

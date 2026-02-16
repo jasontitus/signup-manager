@@ -10,7 +10,9 @@ from app.schemas.member import (
     MemberUpdate,
     MemberNote,
     MemberTagsUpdate,
-    MemberProcessingUpdate
+    MemberProcessingUpdate,
+    MemberCustomFieldsUpdate,
+    MemberContactResponse
 )
 from app.dependencies import get_current_user, require_admin, check_member_access
 from app.services.audit import audit_service
@@ -90,7 +92,8 @@ def search_members(
         if (q_lower in member.first_name.lower()
                 or q_lower in member.last_name.lower()
                 or q_lower in member.city.lower()
-                or q_lower in member.zip_code.lower()):
+                or q_lower in member.zip_code.lower()
+                or q_lower in member.street_address.lower()):
             matches.append(member)
             continue
 
@@ -108,6 +111,49 @@ def search_members(
     matches.sort(key=lambda m: m.created_at, reverse=True)
 
     return matches
+
+
+@router.get("/contacts", response_model=List[MemberContactResponse])
+def get_contacts(
+    status_filter: Optional[MemberStatus] = Query(None),
+    tag_category: Optional[str] = Query(None),
+    tag_value: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Get contact list with decrypted PII for filtered members (admin only).
+    Returns name, email, phone, city, zip, status, tags.
+    """
+    query = db.query(Member)
+
+    if status_filter:
+        query = query.filter(Member.status == status_filter)
+
+    members = query.order_by(Member.created_at.desc()).all()
+
+    # Filter by tag in-memory (tags are stored as JSON)
+    if tag_category and tag_value:
+        filtered = []
+        for m in members:
+            tags = m.tags or {}
+            tag_val = tags.get(tag_category)
+            if isinstance(tag_val, list):
+                if tag_value in tag_val:
+                    filtered.append(m)
+            elif tag_val == tag_value:
+                filtered.append(m)
+        members = filtered
+
+    audit_service.log_action(
+        db=db,
+        user_id=current_user.id,
+        member_id=None,
+        action="VIEWED_CONTACT_LIST",
+        details=f"Admin viewed contact list ({len(members)} members, filters: status={status_filter}, tag={tag_category}:{tag_value})"
+    )
+
+    return members
 
 
 @router.get("/{member_id}", response_model=MemberDetailResponse)
@@ -307,6 +353,42 @@ def update_member_tags(
         member_id=member.id,
         action="TAGS_UPDATED",
         details=f"Tags updated by {current_user.username}"
+    )
+
+    db.commit()
+    db.refresh(member)
+    return member
+
+
+@router.patch("/{member_id}/custom-fields", response_model=MemberDetailResponse)
+def update_custom_fields(
+    member_id: int,
+    update: MemberCustomFieldsUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update custom fields with merge semantics (admin or assigned vetter)."""
+    member = db.query(Member).filter(Member.id == member_id).first()
+    if not member:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
+
+    if not check_member_access(member, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to update this member"
+        )
+
+    # Merge semantics: preserve existing fields, add/update new ones
+    existing = member.custom_fields or {}
+    existing.update(update.custom_fields)
+    member.custom_fields = existing
+
+    audit_service.log_action(
+        db=db,
+        user_id=current_user.id,
+        member_id=member.id,
+        action="CUSTOM_FIELDS_UPDATED",
+        details=f"Custom fields updated by {current_user.username}"
     )
 
     db.commit()

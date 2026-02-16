@@ -70,6 +70,20 @@ export const membersAPI = {
     return response.data;
   },
 
+  // Update custom fields (merge semantics)
+  updateCustomFields: async (memberId, customFields) => {
+    const response = await client.patch(`/members/${memberId}/custom-fields`, {
+      custom_fields: customFields,
+    });
+    return response.data;
+  },
+
+  // Get contacts list (admin only)
+  getContacts: async (params = {}) => {
+    const response = await client.get('/members/contacts', { params });
+    return response.data;
+  },
+
   // Delete member (admin only)
   delete: async (memberId) => {
     const response = await client.delete(`/members/${memberId}`);

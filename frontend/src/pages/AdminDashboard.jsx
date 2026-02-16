@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { membersAPI } from '../api/members';
 import { usersAPI } from '../api/users';
 import { AuthContext } from '../context/AuthContext';
@@ -13,6 +13,7 @@ import Modal from '../components/common/Modal';
 const AdminDashboard = () => {
   const { user: currentUser } = useContext(AuthContext);
   const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(location.state?.tab || 'triage');
   const [members, setMembers] = useState([]);
   const [users, setUsers] = useState([]);
@@ -28,6 +29,12 @@ const AdminDashboard = () => {
   const [reclaimMessage, setReclaimMessage] = useState('');
   const [tagConfig, setTagConfig] = useState(null);
   const [tagFilters, setTagFilters] = useState({});
+  const [statusFilter, setStatusFilter] = useState(null);
+  const [processingFilter, setProcessingFilter] = useState(false);
+  const [contactListMode, setContactListMode] = useState(false);
+  const [contacts, setContacts] = useState([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  const [copiedEmails, setCopiedEmails] = useState(false);
   const [newUser, setNewUser] = useState({
     username: '',
     password: '',
@@ -43,6 +50,12 @@ const AdminDashboard = () => {
       handleSearch(location.state.searchQuery);
     }
   }, []);
+
+  useEffect(() => {
+    if (contactListMode) {
+      loadContacts();
+    }
+  }, [statusFilter]);
 
   const loadTagConfig = async () => {
     try {
@@ -187,10 +200,66 @@ const AdminDashboard = () => {
     setSearchResults([]);
   };
 
+  const loadContacts = async () => {
+    setLoadingContacts(true);
+    try {
+      const params = {};
+      if (statusFilter) params.status_filter = statusFilter;
+      const data = await membersAPI.getContacts(params);
+      setContacts(data);
+    } catch (err) {
+      console.error('Failed to load contacts:', err);
+    } finally {
+      setLoadingContacts(false);
+    }
+  };
+
+  const toggleContactListMode = () => {
+    if (!contactListMode) {
+      loadContacts();
+    }
+    setContactListMode(!contactListMode);
+  };
+
+  const handleCopyEmails = () => {
+    const filteredContacts = applyContactFilters(contacts);
+    const emails = filteredContacts.map((c) => c.email).filter(Boolean).join(', ');
+    navigator.clipboard.writeText(emails).then(() => {
+      setCopiedEmails(true);
+      setTimeout(() => setCopiedEmails(false), 2000);
+    });
+  };
+
+  const applyContactFilters = (contactList) => {
+    let filtered = contactList;
+    if (processingFilter) {
+      // contacts endpoint doesn't have processing_completed, so we filter from local members
+      const notProcessedIds = new Set(members.filter((m) => !m.processing_completed).map((m) => m.id));
+      filtered = filtered.filter((c) => notProcessedIds.has(c.id));
+    }
+    filtered = filterByTags(filtered);
+    return filtered;
+  };
+
   const pendingMembers = members.filter((m) => m.status === 'PENDING');
   const assignedMembers = members.filter((m) => m.status === 'ASSIGNED');
   const vettedMembers = members.filter((m) => m.status === 'VETTED');
+  const unsureMembers = members.filter((m) => m.status === 'UNSURE');
+  const rejectedMembers = members.filter((m) => m.status === 'REJECTED');
+  const notProcessedMembers = members.filter((m) => !m.processing_completed);
   const vetters = users.filter((u) => u.role === 'VETTER' && u.is_active);
+
+  const applyAllFilters = (memberList) => {
+    let filtered = memberList;
+    if (statusFilter) {
+      filtered = filtered.filter((m) => m.status === statusFilter);
+    }
+    if (processingFilter) {
+      filtered = filtered.filter((m) => !m.processing_completed);
+    }
+    filtered = filterByTags(filtered);
+    return filtered;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -244,13 +313,21 @@ const AdminDashboard = () => {
           <div>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-gray-900">All Members</h2>
-              <Button
-                onClick={handleReclaimStale}
-                disabled={reclaimingStale}
-                variant="secondary"
-              >
-                {reclaimingStale ? 'Checking...' : 'Reclaim Stale Assignments'}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={toggleContactListMode}
+                  variant={contactListMode ? 'primary' : 'secondary'}
+                >
+                  {contactListMode ? 'Card View' : 'Contact List'}
+                </Button>
+                <Button
+                  onClick={handleReclaimStale}
+                  disabled={reclaimingStale}
+                  variant="secondary"
+                >
+                  {reclaimingStale ? 'Checking...' : 'Reclaim Stale Assignments'}
+                </Button>
+              </div>
             </div>
 
             {reclaimMessage && (
@@ -267,7 +344,7 @@ const AdminDashboard = () => {
             <div className="mb-4">
               <div className="flex gap-2">
                 <Input
-                  placeholder="Search by name, location, notes, or custom fields..."
+                  placeholder="Search by name, address, location, notes, or custom fields..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -290,8 +367,8 @@ const AdminDashboard = () => {
               )}
               {searchQuery && !searching && (
                 <p className="text-sm text-gray-600 mt-2">
-                  Found {filterByTags(searchResults).length} result{filterByTags(searchResults).length !== 1 ? 's' : ''}
-                  {hasActiveTagFilters && ` (${searchResults.length} before tag filter)`}
+                  Found {applyAllFilters(searchResults).length} result{applyAllFilters(searchResults).length !== 1 ? 's' : ''}
+                  {(hasActiveTagFilters || statusFilter || processingFilter) && ` (${searchResults.length} before filters)`}
                 </p>
               )}
             </div>
@@ -335,39 +412,110 @@ const AdminDashboard = () => {
             )}
 
             {!searchQuery && (
-              <div className="mb-4 flex gap-4">
-                <div className="bg-white p-4 rounded-lg shadow flex-1">
-                  <p className="text-sm text-gray-600">Pending</p>
-                  <p className="text-2xl font-bold text-yellow-600">{pendingMembers.length}</p>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow flex-1">
-                  <p className="text-sm text-gray-600">Assigned</p>
-                  <p className="text-2xl font-bold text-blue-600">{assignedMembers.length}</p>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow flex-1">
-                  <p className="text-sm text-gray-600">Vetted</p>
-                  <p className="text-2xl font-bold text-green-600">{vettedMembers.length}</p>
-                </div>
+              <div className="mb-4 flex flex-wrap gap-3">
+                {[
+                  { key: 'PENDING', label: 'Pending', count: pendingMembers.length, color: 'text-yellow-600', ring: 'ring-yellow-400' },
+                  { key: 'ASSIGNED', label: 'Assigned', count: assignedMembers.length, color: 'text-blue-600', ring: 'ring-blue-400' },
+                  { key: 'VETTED', label: 'Vetted', count: vettedMembers.length, color: 'text-green-600', ring: 'ring-green-400' },
+                  { key: 'UNSURE', label: 'Unsure', count: unsureMembers.length, color: 'text-orange-600', ring: 'ring-orange-400' },
+                  { key: 'REJECTED', label: 'Rejected', count: rejectedMembers.length, color: 'text-red-600', ring: 'ring-red-400' },
+                ].map((stat) => (
+                  <button
+                    key={stat.key}
+                    onClick={() => setStatusFilter(statusFilter === stat.key ? null : stat.key)}
+                    className={`bg-white p-4 rounded-lg shadow flex-1 min-w-[100px] text-left cursor-pointer transition-all hover:shadow-md ${
+                      statusFilter === stat.key ? `ring-2 ${stat.ring}` : ''
+                    }`}
+                  >
+                    <p className="text-sm text-gray-600">{stat.label}</p>
+                    <p className={`text-2xl font-bold ${stat.color}`}>{stat.count}</p>
+                  </button>
+                ))}
+                <button
+                  onClick={() => setProcessingFilter(!processingFilter)}
+                  className={`bg-white p-4 rounded-lg shadow flex-1 min-w-[100px] text-left cursor-pointer transition-all hover:shadow-md ${
+                    processingFilter ? 'ring-2 ring-purple-400' : ''
+                  }`}
+                >
+                  <p className="text-sm text-gray-600">Not Processed</p>
+                  <p className="text-2xl font-bold text-purple-600">{notProcessedMembers.length}</p>
+                </button>
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(() => {
-                const displayMembers = filterByTags(searchQuery ? searchResults : members);
-                return displayMembers.map((member, index) => (
-                  <MemberCard
-                    key={member.id}
-                    member={member}
-                    tab="database"
-                    searchContext={searchQuery ? {
-                      query: searchQuery,
-                      resultIds: displayMembers.map(m => m.id),
-                      currentIndex: index,
-                    } : undefined}
-                  />
-                ));
-              })()}
-            </div>
+            {contactListMode ? (
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <p className="text-sm text-gray-600">
+                    {loadingContacts ? 'Loading contacts...' : `${applyContactFilters(contacts).length} contacts`}
+                  </p>
+                  <Button variant="secondary" onClick={handleCopyEmails} disabled={loadingContacts}>
+                    {copiedEmails ? 'Copied!' : 'Copy Emails'}
+                  </Button>
+                </div>
+                <div className="bg-white shadow rounded-lg overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">City</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {applyContactFilters(contacts).map((contact) => {
+                        const statusColorMap = {
+                          PENDING: 'bg-yellow-100 text-yellow-800',
+                          ASSIGNED: 'bg-blue-100 text-blue-800',
+                          VETTED: 'bg-green-100 text-green-800',
+                          UNSURE: 'bg-orange-100 text-orange-800',
+                          REJECTED: 'bg-red-100 text-red-800',
+                        };
+                        return (
+                          <tr
+                            key={contact.id}
+                            onClick={() => navigate(`/members/${contact.id}`, { state: { from: '/admin', tab: 'database' } })}
+                            className="hover:bg-gray-50 cursor-pointer"
+                          >
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                              {contact.first_name} {contact.last_name}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{contact.email}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{contact.phone_number}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{contact.city}</td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusColorMap[contact.status] || ''}`}>
+                                {contact.status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {(() => {
+                  const displayMembers = applyAllFilters(searchQuery ? searchResults : members);
+                  return displayMembers.map((member, index) => (
+                    <MemberCard
+                      key={member.id}
+                      member={member}
+                      tab="database"
+                      searchContext={searchQuery ? {
+                        query: searchQuery,
+                        resultIds: displayMembers.map(m => m.id),
+                        currentIndex: index,
+                      } : undefined}
+                    />
+                  ));
+                })()}
+              </div>
+            )}
           </div>
         )}
 

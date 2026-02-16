@@ -13,6 +13,7 @@ const statusLabels = {
   ASSIGNED: 'Under Review',
   VETTED: 'Approved',
   REJECTED: 'Rejected',
+  UNSURE: 'Unsure',
 };
 
 const statusColors = {
@@ -20,6 +21,7 @@ const statusColors = {
   ASSIGNED: 'bg-blue-100 text-blue-800 border-blue-300',
   VETTED: 'bg-green-100 text-green-800 border-green-300',
   REJECTED: 'bg-red-100 text-red-800 border-red-300',
+  UNSURE: 'bg-orange-100 text-orange-800 border-orange-300',
 };
 
 const MemberDetailPage = () => {
@@ -45,6 +47,11 @@ const MemberDetailPage = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [showDeleteSection, setShowDeleteSection] = useState(false);
+  const [editingCustomFields, setEditingCustomFields] = useState(false);
+  const [editedFields, setEditedFields] = useState({});
+  const [newFieldKey, setNewFieldKey] = useState('');
+  const [newFieldValue, setNewFieldValue] = useState('');
+  const [savingFields, setSavingFields] = useState(false);
 
   useEffect(() => {
     loadMember();
@@ -170,6 +177,40 @@ const MemberDetailPage = () => {
   const handleDeleteCancel = () => {
     setDeleteConfirmOpen(false);
     setDeleteError('');
+  };
+
+  const startEditingFields = () => {
+    setEditedFields({ ...(member.custom_fields || {}) });
+    setEditingCustomFields(true);
+  };
+
+  const cancelEditingFields = () => {
+    setEditingCustomFields(false);
+    setEditedFields({});
+    setNewFieldKey('');
+    setNewFieldValue('');
+  };
+
+  const handleSaveCustomFields = async () => {
+    setSavingFields(true);
+    try {
+      const data = await membersAPI.updateCustomFields(id, editedFields);
+      setMember(data);
+      setEditingCustomFields(false);
+      setNewFieldKey('');
+      setNewFieldValue('');
+    } catch (err) {
+      console.error('Failed to update custom fields:', err);
+    } finally {
+      setSavingFields(false);
+    }
+  };
+
+  const handleAddNewField = () => {
+    if (!newFieldKey.trim() || !newFieldValue.trim()) return;
+    setEditedFields((prev) => ({ ...prev, [newFieldKey.trim()]: newFieldValue.trim() }));
+    setNewFieldKey('');
+    setNewFieldValue('');
   };
 
   const buildGoogleSearchUrl = (query) => {
@@ -340,21 +381,104 @@ const MemberDetailPage = () => {
 
           {/* Application Responses */}
           <div className="mb-6 border-t pt-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Application Responses</h2>
-            {formConfig && member.custom_fields && Object.keys(member.custom_fields).length > 0 ? (
-              formConfig.fields.map((fieldConfig) => {
-                const value = member.custom_fields[fieldConfig.key];
-                if (!value) return null;
-
-                return (
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Application Responses</h2>
+              {!editingCustomFields ? (
+                <button
+                  onClick={startEditingFields}
+                  className="text-sm text-primary-600 hover:text-primary-800 font-medium"
+                >
+                  Edit
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <Button onClick={handleSaveCustomFields} disabled={savingFields}>
+                    {savingFields ? 'Saving...' : 'Save'}
+                  </Button>
+                  <Button variant="secondary" onClick={cancelEditingFields}>
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
+            {editingCustomFields ? (
+              <div>
+                {/* Existing fields from form config */}
+                {formConfig && formConfig.fields.map((fieldConfig) => (
                   <div key={fieldConfig.key} className="mb-4">
-                    <p className="text-sm text-gray-600">{fieldConfig.label}</p>
-                    <p className="font-medium whitespace-pre-wrap">{value}</p>
+                    <label className="text-sm text-gray-600 block mb-1">{fieldConfig.label}</label>
+                    <textarea
+                      value={editedFields[fieldConfig.key] || ''}
+                      onChange={(e) => setEditedFields((prev) => ({ ...prev, [fieldConfig.key]: e.target.value }))}
+                      rows="2"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    />
                   </div>
-                );
-              })
+                ))}
+                {/* Ad-hoc fields not in formConfig */}
+                {Object.entries(editedFields)
+                  .filter(([key]) => !formConfig || !formConfig.fields.some((f) => f.key === key))
+                  .map(([key, value]) => (
+                    <div key={key} className="mb-4">
+                      <label className="text-sm text-gray-600 block mb-1">{key}</label>
+                      <textarea
+                        value={value}
+                        onChange={(e) => setEditedFields((prev) => ({ ...prev, [key]: e.target.value }))}
+                        rows="2"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      />
+                    </div>
+                  ))}
+                {/* Add new field */}
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Add New Field</p>
+                  <div className="flex gap-2">
+                    <input
+                      placeholder="Field name"
+                      value={newFieldKey}
+                      onChange={(e) => setNewFieldKey(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                    <input
+                      placeholder="Value"
+                      value={newFieldValue}
+                      onChange={(e) => setNewFieldValue(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                    <Button variant="secondary" onClick={handleAddNewField} disabled={!newFieldKey.trim() || !newFieldValue.trim()}>
+                      Add
+                    </Button>
+                  </div>
+                </div>
+              </div>
             ) : (
-              <p className="text-gray-500 italic">No application responses provided</p>
+              <>
+                {formConfig && member.custom_fields && Object.keys(member.custom_fields).length > 0 ? (
+                  <>
+                    {formConfig.fields.map((fieldConfig) => {
+                      const value = member.custom_fields[fieldConfig.key];
+                      if (!value) return null;
+                      return (
+                        <div key={fieldConfig.key} className="mb-4">
+                          <p className="text-sm text-gray-600">{fieldConfig.label}</p>
+                          <p className="font-medium whitespace-pre-wrap">{value}</p>
+                        </div>
+                      );
+                    })}
+                    {/* Show ad-hoc fields not in formConfig */}
+                    {Object.entries(member.custom_fields)
+                      .filter(([key]) => !formConfig.fields.some((f) => f.key === key))
+                      .map(([key, value]) => (
+                        <div key={key} className="mb-4">
+                          <p className="text-sm text-gray-600">{key}</p>
+                          <p className="font-medium whitespace-pre-wrap">{value}</p>
+                        </div>
+                      ))}
+                  </>
+                ) : (
+                  <p className="text-gray-500 italic">No application responses provided</p>
+                )}
+              </>
             )}
           </div>
 
@@ -443,6 +567,13 @@ const MemberDetailPage = () => {
               {member.status !== 'VETTED' && (
                 <Button onClick={() => handleStatusChange('VETTED')}>
                   Accept
+                </Button>
+              )}
+              {member.status !== 'UNSURE' && (
+                <Button variant="secondary" onClick={() => handleStatusChange('UNSURE')}
+                  className="border-orange-400 text-orange-700 hover:bg-orange-50"
+                >
+                  Unsure
                 </Button>
               )}
               {member.status !== 'REJECTED' && (

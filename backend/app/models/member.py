@@ -13,6 +13,7 @@ class MemberStatus(str, enum.Enum):
     ASSIGNED = "ASSIGNED"
     VETTED = "VETTED"
     REJECTED = "REJECTED"
+    UNSURE = "UNSURE"
 
 
 class Member(Base):
