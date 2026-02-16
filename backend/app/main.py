@@ -20,12 +20,38 @@ def vault_mode_enabled() -> bool:
     return vault_manager.vault_exists() and not settings.SECRET_KEY
 
 
+def run_migrations(db_engine):
+    """Add new columns to existing tables if they don't exist.
+    SQLAlchemy's create_all only creates new tables, not new columns."""
+    from sqlalchemy import inspect, text
+    inspector = inspect(db_engine)
+
+    if "members" in inspector.get_table_names():
+        existing_cols = {col["name"] for col in inspector.get_columns("members")}
+
+        with db_engine.connect() as conn:
+            if "processing_completed" not in existing_cols:
+                conn.execute(text(
+                    "ALTER TABLE members ADD COLUMN processing_completed BOOLEAN NOT NULL DEFAULT 0"
+                ))
+                conn.commit()
+                print("Migration: added 'processing_completed' column to members table")
+
+            if "tags" not in existing_cols:
+                conn.execute(text(
+                    "ALTER TABLE members ADD COLUMN tags TEXT"
+                ))
+                conn.commit()
+                print("Migration: added 'tags' column to members table")
+
+
 def initialize_app():
     """Create tables, seed first admin, and initialize encryption.
     Called at startup (direct mode) or after vault unlock."""
     if settings.ENCRYPTION_KEY:
         encryption_service.initialize(settings.ENCRYPTION_KEY)
     Base.metadata.create_all(bind=engine)
+    run_migrations(engine)
     db = SessionLocal()
     try:
         create_first_admin(db)

@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "categories": [
+    {
+      "key": "age_group",
+      "label": "Age Group",
+      "options": [
+        "Under 18",
+        "19-25",
+        "25-40",
+        "41-60",
+        "61-80",
+        "80+"
+      ],
+      "multiple": false
+    },
+    {
+      "key": "occupation",
+      "label": "Occupation",
+      "options": [
+        "Mental Health Professional",
+        "Teacher",
+        "Tech",
+        "Medical",
+        "Business",
+        "Nonprofit",
+        "Organizational Development",
+        "Organizer",
+        "Writer"
+      ],
+      "multiple": true
+    },
+    {
+      "key": "skillset",
+      "label": "Skillset",
+      "options": [
+        "Organizer",
+        "Facilitator",
+        "Bookkeeping",
+        "Communications",
+        "Writing"
+      ],
+      "multiple": true
+    }
+  ]
+}
