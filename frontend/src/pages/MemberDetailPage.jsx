@@ -8,6 +8,20 @@ import Select from '../components/common/Select';
 import Modal from '../components/common/Modal';
 import FECContributions from '../components/members/FECContributions';
 
+const statusLabels = {
+  PENDING: 'Pending Review',
+  ASSIGNED: 'Under Review',
+  VETTED: 'Approved',
+  REJECTED: 'Rejected',
+};
+
+const statusColors = {
+  PENDING: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  ASSIGNED: 'bg-blue-100 text-blue-800 border-blue-300',
+  VETTED: 'bg-green-100 text-green-800 border-green-300',
+  REJECTED: 'bg-red-100 text-red-800 border-red-300',
+};
+
 const MemberDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -23,16 +37,19 @@ const MemberDetailPage = () => {
   const nextId = hasSearchContext && currentIndex < resultIds.length - 1 ? resultIds[currentIndex + 1] : null;
   const [member, setMember] = useState(null);
   const [formConfig, setFormConfig] = useState(null);
+  const [tagConfig, setTagConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [newNote, setNewNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [showDeleteSection, setShowDeleteSection] = useState(false);
 
   useEffect(() => {
     loadMember();
     loadFormConfig();
+    loadTagConfig();
   }, [id]);
 
   const loadFormConfig = async () => {
@@ -42,6 +59,16 @@ const MemberDetailPage = () => {
       setFormConfig(config);
     } catch (err) {
       console.error('Failed to load form config:', err);
+    }
+  };
+
+  const loadTagConfig = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.BASE_URL}api/public/tag-config`);
+      const config = await response.json();
+      setTagConfig(config);
+    } catch (err) {
+      console.error('Failed to load tag config:', err);
     }
   };
 
@@ -70,6 +97,41 @@ const MemberDetailPage = () => {
       }
     } catch (err) {
       console.error('Failed to update status:', err);
+    }
+  };
+
+  const handleProcessingToggle = async () => {
+    try {
+      const data = await membersAPI.updateProcessing(id, !member.processing_completed);
+      setMember(data);
+    } catch (err) {
+      console.error('Failed to update processing status:', err);
+    }
+  };
+
+  const handleTagChange = async (categoryKey, value) => {
+    const currentTags = member.tags || {};
+    const updatedTags = { ...currentTags, [categoryKey]: value };
+    try {
+      const data = await membersAPI.updateTags(id, updatedTags);
+      setMember(data);
+    } catch (err) {
+      console.error('Failed to update tags:', err);
+    }
+  };
+
+  const handleMultiTagToggle = async (categoryKey, option) => {
+    const currentTags = member.tags || {};
+    const currentValues = currentTags[categoryKey] || [];
+    const updatedValues = currentValues.includes(option)
+      ? currentValues.filter(v => v !== option)
+      : [...currentValues, option];
+    const updatedTags = { ...currentTags, [categoryKey]: updatedValues };
+    try {
+      const data = await membersAPI.updateTags(id, updatedTags);
+      setMember(data);
+    } catch (err) {
+      console.error('Failed to update tags:', err);
     }
   };
 
@@ -110,6 +172,10 @@ const MemberDetailPage = () => {
     setDeleteError('');
   };
 
+  const buildGoogleSearchUrl = (query) => {
+    return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -137,12 +203,7 @@ const MemberDetailPage = () => {
     );
   }
 
-  const statusColors = {
-    PENDING: 'bg-yellow-100 text-yellow-800',
-    ASSIGNED: 'bg-blue-100 text-blue-800',
-    VETTED: 'bg-green-100 text-green-800',
-    REJECTED: 'bg-red-100 text-red-800',
-  };
+  const fullName = `${member.first_name} ${member.last_name}`;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -150,7 +211,7 @@ const MemberDetailPage = () => {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         <Button variant="ghost" onClick={() => navigate(backPath, { state: { tab, searchQuery } })} className="mb-4">
-          ← Back
+          &larr; Back
         </Button>
 
         {hasSearchContext && (
@@ -162,10 +223,10 @@ const MemberDetailPage = () => {
               disabled={!prevId}
               className={`text-sm font-medium px-3 py-1 rounded ${prevId ? 'text-primary-600 hover:bg-primary-50' : 'text-gray-300 cursor-not-allowed'}`}
             >
-              ← Prev
+              &larr; Prev
             </button>
             <span className="text-sm text-gray-600">
-              Result {currentIndex + 1} of {resultIds.length} for "{searchQuery}"
+              Result {currentIndex + 1} of {resultIds.length} for &ldquo;{searchQuery}&rdquo;
             </span>
             <button
               onClick={() => nextId && navigate(`/members/${nextId}`, {
@@ -174,22 +235,30 @@ const MemberDetailPage = () => {
               disabled={!nextId}
               className={`text-sm font-medium px-3 py-1 rounded ${nextId ? 'text-primary-600 hover:bg-primary-50' : 'text-gray-300 cursor-not-allowed'}`}
             >
-              Next →
+              Next &rarr;
             </button>
           </div>
         )}
 
         <div className="bg-white shadow rounded-lg p-6 mb-6">
+          {/* Header with name and status */}
           <div className="flex justify-between items-start mb-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                {member.first_name} {member.last_name}
+                {fullName}
               </h1>
               <p className="text-gray-600">Application ID: {member.id}</p>
             </div>
-            <span className={`px-3 py-1 text-sm font-medium rounded-full ${statusColors[member.status]}`}>
-              {member.status}
-            </span>
+            <div className="text-right">
+              <span className={`inline-block px-3 py-1 text-sm font-medium rounded-full border ${statusColors[member.status]}`}>
+                {statusLabels[member.status] || member.status}
+              </span>
+              {member.processing_completed && (
+                <span className="inline-block ml-2 px-3 py-1 text-sm font-medium rounded-full bg-purple-100 text-purple-800 border border-purple-300">
+                  Processing Complete
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Contact Information */}
@@ -226,6 +295,46 @@ const MemberDetailPage = () => {
             </div>
           </div>
 
+          {/* Google Search Links */}
+          <div className="mb-6 border-t pt-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Google Search</h2>
+            <div className="flex flex-wrap gap-3">
+              {member.phone_number && (
+                <a
+                  href={buildGoogleSearchUrl(`${fullName} ${member.phone_number}`)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
+                >
+                  Name + Phone
+                  <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                </a>
+              )}
+              {member.email && (
+                <a
+                  href={buildGoogleSearchUrl(`${fullName} ${member.email}`)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
+                >
+                  Name + Email
+                  <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                </a>
+              )}
+              {member.city && (
+                <a
+                  href={buildGoogleSearchUrl(`${fullName} ${member.city}`)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-colors"
+                >
+                  Name + City
+                  <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                </a>
+              )}
+            </div>
+          </div>
+
           {/* Application Responses */}
           <div className="mb-6 border-t pt-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Application Responses</h2>
@@ -253,13 +362,82 @@ const MemberDetailPage = () => {
             zipCode={member.zip_code}
           />
 
-          {/* Status Update */}
+          {/* Tags */}
+          {tagConfig && (
+            <div className="mb-6 border-t pt-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Tags</h2>
+              <div className="space-y-4">
+                {tagConfig.categories.map((category) => {
+                  const currentValue = member.tags?.[category.key];
+
+                  if (category.multiple) {
+                    const selectedValues = Array.isArray(currentValue) ? currentValue : [];
+                    return (
+                      <div key={category.key}>
+                        <p className="text-sm font-medium text-gray-700 mb-2">{category.label}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {category.options.map((option) => {
+                            const isSelected = selectedValues.includes(option);
+                            return (
+                              <button
+                                key={option}
+                                onClick={() => handleMultiTagToggle(category.key, option)}
+                                className={`px-3 py-1 text-sm rounded-full border transition-colors ${
+                                  isSelected
+                                    ? 'bg-primary-100 text-primary-800 border-primary-300 font-medium'
+                                    : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                                }`}
+                              >
+                                {option}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div key={category.key}>
+                      <p className="text-sm font-medium text-gray-700 mb-2">{category.label}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {category.options.map((option) => {
+                          const isSelected = currentValue === option;
+                          return (
+                            <button
+                              key={option}
+                              onClick={() => handleTagChange(category.key, isSelected ? null : option)}
+                              className={`px-3 py-1 text-sm rounded-full border transition-colors ${
+                                isSelected
+                                  ? 'bg-primary-100 text-primary-800 border-primary-300 font-medium'
+                                  : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              {option}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Vetting Status */}
           <div className="mb-6 border-t pt-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Update Status</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Vetting</h2>
+            <div className="flex items-center gap-4 mb-4">
+              <span className="text-sm text-gray-600">Current status:</span>
+              <span className={`inline-block px-3 py-1 text-sm font-medium rounded-full border ${statusColors[member.status]}`}>
+                {statusLabels[member.status] || member.status}
+              </span>
+            </div>
             <div className="flex gap-2">
               {member.status !== 'VETTED' && (
                 <Button onClick={() => handleStatusChange('VETTED')}>
-                  Mark as Vetted
+                  Accept
                 </Button>
               )}
               {member.status !== 'REJECTED' && (
@@ -270,18 +448,21 @@ const MemberDetailPage = () => {
             </div>
           </div>
 
-          {/* Delete Member (Admin Only) */}
-          {isAdmin && (
-            <div className="mb-6 border-t pt-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Delete Member</h2>
-              <p className="text-sm text-gray-600 mb-4">
-                Permanently delete this member and all associated data. This action cannot be undone.
-              </p>
-              <Button variant="danger" onClick={handleDeleteClick}>
-                Delete Member
-              </Button>
-            </div>
-          )}
+          {/* Processing Completed */}
+          <div className="mb-6 border-t pt-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Processing</h2>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={member.processing_completed || false}
+                onChange={handleProcessingToggle}
+                className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm text-gray-700">
+                All processing has been completed for this member
+              </span>
+            </label>
+          </div>
 
           {/* Internal Notes */}
           <div className="border-t pt-6">
@@ -309,7 +490,7 @@ const MemberDetailPage = () => {
         </div>
 
         {/* Metadata */}
-        <div className="bg-white shadow rounded-lg p-6">
+        <div className="bg-white shadow rounded-lg p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Metadata</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
@@ -322,6 +503,30 @@ const MemberDetailPage = () => {
             </div>
           </div>
         </div>
+
+        {/* Delete Member (Admin Only) — at the very bottom, collapsed by default */}
+        {isAdmin && (
+          <div className="bg-white shadow rounded-lg p-6">
+            {!showDeleteSection ? (
+              <button
+                onClick={() => setShowDeleteSection(true)}
+                className="text-sm text-gray-400 hover:text-red-600 transition-colors"
+              >
+                Show danger zone...
+              </button>
+            ) : (
+              <div>
+                <h2 className="text-lg font-semibold text-red-700 mb-2">Danger Zone</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Permanently delete this member and all associated data. This action cannot be undone.
+                </p>
+                <Button variant="danger" onClick={handleDeleteClick}>
+                  Delete Member
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Delete Confirmation Modal */}
@@ -343,17 +548,17 @@ const MemberDetailPage = () => {
           )}
           <div className="flex gap-3">
             <Button
-              onClick={handleDeleteConfirm}
-              className="flex-1 bg-red-600 hover:bg-red-700"
-            >
-              Delete
-            </Button>
-            <Button
               onClick={handleDeleteCancel}
               variant="secondary"
               className="flex-1"
             >
               Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteConfirm}
+              className="flex-1 bg-red-600 hover:bg-red-700"
+            >
+              Delete
             </Button>
           </div>
         </div>

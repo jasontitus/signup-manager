@@ -1,6 +1,6 @@
 import enum
 import json
-from sqlalchemy import Column, Integer, String, Enum, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Boolean, Enum, DateTime, ForeignKey, Text
 from sqlalchemy.ext.hybrid import hybrid_property
 from datetime import datetime
 from app.database import Base
@@ -38,6 +38,12 @@ class Member(Base):
     # Workflow fields
     status = Column(Enum(MemberStatus), default=MemberStatus.PENDING, nullable=False, index=True)
     assigned_vetter_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+
+    # Processing completed flag (separate from vetting status)
+    processing_completed = Column(Boolean, default=False, nullable=False, server_default="0")
+
+    # Tags stored as JSON (not encrypted — internal categories, not PII)
+    _tags = Column("tags", Text, nullable=True)
 
     # Internal notes (not visible to applicant)
     notes = Column(Text, nullable=True)
@@ -120,3 +126,18 @@ class Member(Base):
             self._custom_fields = encryption_service.encrypt(json_str)
         else:
             self._custom_fields = None
+
+    @hybrid_property
+    def tags(self):
+        """Parse tags JSON."""
+        if self._tags:
+            return json.loads(self._tags)
+        return {}
+
+    @tags.setter
+    def tags(self, value: dict):
+        """Store tags as JSON."""
+        if value:
+            self._tags = json.dumps(value)
+        else:
+            self._tags = None

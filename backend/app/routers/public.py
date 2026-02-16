@@ -9,8 +9,10 @@ import os
 
 router = APIRouter(prefix="/public", tags=["Public"])
 
-# Path to form configuration file
-FORM_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "data", "form_config.json")
+# Path to configuration files
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+FORM_CONFIG_PATH = os.path.join(DATA_DIR, "form_config.json")
+TAG_CONFIG_PATH = os.path.join(DATA_DIR, "tag_config.json")
 
 
 def load_form_config():
@@ -19,10 +21,22 @@ def load_form_config():
         return json.load(f)
 
 
+def load_tag_config():
+    """Load and return the tag configuration."""
+    with open(TAG_CONFIG_PATH, 'r') as f:
+        return json.load(f)
+
+
 @router.get("/form-config")
 def get_form_config():
     """Return the form field configuration for dynamic form rendering."""
     return load_form_config()
+
+
+@router.get("/tag-config")
+def get_tag_config():
+    """Return the tag category configuration for member tagging."""
+    return load_tag_config()
 
 
 @router.post("/apply", status_code=status.HTTP_201_CREATED)

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from typing import Optional, Dict
+from typing import Optional, Dict, List, Any
 from app.models.member import MemberStatus
 
 
@@ -25,6 +25,16 @@ class MemberNote(BaseModel):
     note: str
 
 
+class MemberTagsUpdate(BaseModel):
+    """Schema for updating member tags."""
+    tags: Dict[str, Any]
+
+
+class MemberProcessingUpdate(BaseModel):
+    """Schema for updating processing completed flag."""
+    processing_completed: bool
+
+
 class MemberResponse(BaseModel):
     """Schema for member list view (no PII)."""
     id: int
@@ -33,6 +43,8 @@ class MemberResponse(BaseModel):
     city: str
     zip_code: str
     status: MemberStatus
+    processing_completed: bool = False
+    tags: Dict[str, Any] = {}
     assigned_vetter_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
@@ -53,6 +65,8 @@ class MemberDetailResponse(BaseModel):
     email: str
     custom_fields: Dict[str, str] = {}
     status: MemberStatus
+    processing_completed: bool = False
+    tags: Dict[str, Any] = {}
     assigned_vetter_id: Optional[int] = None
     notes: Optional[str] = None
     created_at: datetime

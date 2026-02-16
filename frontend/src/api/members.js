@@ -56,6 +56,20 @@ export const membersAPI = {
     return response.data;
   },
 
+  // Update member tags
+  updateTags: async (memberId, tags) => {
+    const response = await client.patch(`/members/${memberId}/tags`, { tags });
+    return response.data;
+  },
+
+  // Update processing completed flag
+  updateProcessing: async (memberId, processingCompleted) => {
+    const response = await client.patch(`/members/${memberId}/processing`, {
+      processing_completed: processingCompleted,
+    });
+    return response.data;
+  },
+
   // Delete member (admin only)
   delete: async (memberId) => {
     const response = await client.delete(`/members/${memberId}`);
