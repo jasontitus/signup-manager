@@ -26,6 +26,8 @@ const AdminDashboard = () => {
   const [deleteError, setDeleteError] = useState('');
   const [reclaimingStale, setReclaimingStale] = useState(false);
   const [reclaimMessage, setReclaimMessage] = useState('');
+  const [tagConfig, setTagConfig] = useState(null);
+  const [tagFilters, setTagFilters] = useState({});
   const [newUser, setNewUser] = useState({
     username: '',
     password: '',
@@ -36,10 +38,53 @@ const AdminDashboard = () => {
   useEffect(() => {
     loadMembers();
     loadUsers();
+    loadTagConfig();
     if (location.state?.searchQuery) {
       handleSearch(location.state.searchQuery);
     }
   }, []);
+
+  const loadTagConfig = async () => {
+    try {
+      const response = await fetch(`${import.meta.env.BASE_URL}api/public/tag-config`);
+      const config = await response.json();
+      setTagConfig(config);
+    } catch (err) {
+      console.error('Failed to load tag config:', err);
+    }
+  };
+
+  const handleTagFilterToggle = (categoryKey, option) => {
+    setTagFilters((prev) => {
+      const current = prev[categoryKey] || [];
+      const updated = current.includes(option)
+        ? current.filter((v) => v !== option)
+        : [...current, option];
+      if (updated.length === 0) {
+        const { [categoryKey]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [categoryKey]: updated };
+    });
+  };
+
+  const clearTagFilters = () => setTagFilters({});
+
+  const hasActiveTagFilters = Object.keys(tagFilters).length > 0;
+
+  const filterByTags = (memberList) => {
+    if (!hasActiveTagFilters) return memberList;
+    return memberList.filter((m) => {
+      const memberTags = m.tags || {};
+      return Object.entries(tagFilters).every(([catKey, filterValues]) => {
+        const tagValue = memberTags[catKey];
+        if (Array.isArray(tagValue)) {
+          return filterValues.some((fv) => tagValue.includes(fv));
+        }
+        return filterValues.includes(tagValue);
+      });
+    });
+  };
 
   const loadMembers = async () => {
     setLoading(true);
@@ -245,10 +290,49 @@ const AdminDashboard = () => {
               )}
               {searchQuery && !searching && (
                 <p className="text-sm text-gray-600 mt-2">
-                  Found {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+                  Found {filterByTags(searchResults).length} result{filterByTags(searchResults).length !== 1 ? 's' : ''}
+                  {hasActiveTagFilters && ` (${searchResults.length} before tag filter)`}
                 </p>
               )}
             </div>
+
+            {/* Tag Filters */}
+            {tagConfig && (
+              <div className="mb-4 bg-white rounded-lg shadow px-4 py-3">
+                <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+                  <h3 className="text-sm font-semibold text-gray-700 mr-1">Filter by Tags</h3>
+                  {tagConfig.categories.map((category) => (
+                    <div key={category.key} className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-sm font-medium text-gray-700">{category.label}:</span>
+                      {category.options.map((option) => {
+                        const isActive = (tagFilters[category.key] || []).includes(option);
+                        return (
+                          <button
+                            key={option}
+                            onClick={() => handleTagFilterToggle(category.key, option)}
+                            className={`px-3 py-1.5 text-sm rounded-full border-2 font-medium transition-all cursor-pointer ${
+                              isActive
+                                ? 'bg-primary-600 text-white border-primary-600 shadow-sm'
+                                : 'bg-white text-gray-600 border-gray-300 hover:border-primary-400 hover:text-primary-700 hover:shadow-sm'
+                            }`}
+                          >
+                            {option}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                  {hasActiveTagFilters && (
+                    <button
+                      onClick={clearTagFilters}
+                      className="text-xs text-primary-600 hover:text-primary-800 font-medium"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {!searchQuery && (
               <div className="mb-4 flex gap-4">
@@ -268,18 +352,21 @@ const AdminDashboard = () => {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(searchQuery ? searchResults : members).map((member, index) => (
-                <MemberCard
-                  key={member.id}
-                  member={member}
-                  tab="database"
-                  searchContext={searchQuery ? {
-                    query: searchQuery,
-                    resultIds: searchResults.map(m => m.id),
-                    currentIndex: index,
-                  } : undefined}
-                />
-              ))}
+              {(() => {
+                const displayMembers = filterByTags(searchQuery ? searchResults : members);
+                return displayMembers.map((member, index) => (
+                  <MemberCard
+                    key={member.id}
+                    member={member}
+                    tab="database"
+                    searchContext={searchQuery ? {
+                      query: searchQuery,
+                      resultIds: displayMembers.map(m => m.id),
+                      currentIndex: index,
+                    } : undefined}
+                  />
+                ));
+              })()}
             </div>
           </div>
         )}

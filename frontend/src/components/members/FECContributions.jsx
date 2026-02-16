@@ -44,6 +44,9 @@ const FECContributions = ({ firstName, lastName, zipCode }) => {
           const fecCount = json?.fec?.contributions?.length ?? 0;
           const caCount = json?.ca?.contributions?.length ?? 0;
           console.debug(`[FEC API] Payload: ${fecCount} FEC + ${caCount} CA contributions`);
+          if (json?._timings) {
+            console.debug('[FEC API] Server timings:', JSON.stringify(json._timings, null, 2));
+          }
         }
         setData(json);
       })
