@@ -340,7 +340,7 @@ const AdminDashboard = () => {
               </div>
             )}
 
-            {/* Search Input */}
+            {/* Search + Status Filter */}
             <div className="mb-4">
               <div className="flex gap-2">
                 <Input
@@ -355,6 +355,19 @@ const AdminDashboard = () => {
                     }
                   }}
                   className="flex-1"
+                />
+                <Select
+                  name="statusFilter"
+                  value={statusFilter || ''}
+                  onChange={(e) => setStatusFilter(e.target.value || null)}
+                  options={[
+                    { value: '', label: 'All Statuses' },
+                    { value: 'PENDING', label: 'Pending' },
+                    { value: 'ASSIGNED', label: 'Assigned' },
+                    { value: 'VETTED', label: 'Vetted' },
+                    { value: 'UNSURE', label: 'Unsure' },
+                    { value: 'REJECTED', label: 'Rejected' },
+                  ]}
                 />
                 {searchQuery && (
                   <Button onClick={clearSearch} variant="secondary">
