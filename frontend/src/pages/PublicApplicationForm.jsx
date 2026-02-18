@@ -195,7 +195,7 @@ const PublicApplicationForm = () => {
 
             <div className="mt-6">
               <Button type="submit" disabled={loading} className="w-full">
-                {loading ? 'Submitting...' : 'Submit Application'}
+                {loading ? 'Submitting...' : 'Submit'}
               </Button>
             </div>
           </form>
