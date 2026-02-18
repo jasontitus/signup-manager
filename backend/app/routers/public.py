@@ -16,8 +16,10 @@ TAG_CONFIG_PATH = os.path.join(DATA_DIR, "tag_config.json")
 
 
 def load_form_config():
-    """Load and return the form configuration."""
-    with open(FORM_CONFIG_PATH, 'r') as f:
+    """Load form configuration, with optional local override."""
+    local_path = FORM_CONFIG_PATH.replace('.json', '.local.json')
+    path = local_path if os.path.exists(local_path) else FORM_CONFIG_PATH
+    with open(path, 'r') as f:
         return json.load(f)
 
 

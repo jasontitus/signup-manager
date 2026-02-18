@@ -31,6 +31,9 @@ dist/
 *.db-wal
 local_data/
 
+# Local config overrides
+*.local.json
+
 # IDE
 .vscode/
 .idea/

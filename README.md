@@ -116,6 +116,28 @@ Once running, visit:
 
 Anyone can submit an application at `/apply` (no login required).
 
+#### Customizing the Application Form
+
+The form title, description, and custom fields are configured via `backend/data/form_config.json`. To customize the form for your instance without affecting the git repo, create a local override:
+
+```bash
+cp backend/data/form_config.json backend/data/form_config.local.json
+# Edit form_config.local.json with your changes
+```
+
+The local file supports `title` and `description` fields at the top level:
+
+```json
+{
+  "version": "1.0",
+  "title": "Your Organization Membership",
+  "description": "A welcome message shown below the title on the signup form.",
+  "fields": [ ... ]
+}
+```
+
+The `*.local.json` pattern is gitignored, so your instance-specific customizations stay local.
+
 ### Admin Workflow
 
 1. Login at `/login`
