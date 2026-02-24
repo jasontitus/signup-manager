@@ -26,7 +26,8 @@
         "Nonprofit",
         "Organizational Development",
         "Organizer",
-        "Writer"
+        "Writer",
+        "Musician"
       ],
       "multiple": true
     },
@@ -38,7 +39,9 @@
         "Facilitator",
         "Bookkeeping",
         "Communications",
-        "Writing"
+        "Writing",
+        "Musician",
+        "DJ"
       ],
       "multiple": true
     }
