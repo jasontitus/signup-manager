@@ -52,12 +52,23 @@ const MemberDetailPage = () => {
   const [newFieldKey, setNewFieldKey] = useState('');
   const [newFieldValue, setNewFieldValue] = useState('');
   const [savingFields, setSavingFields] = useState(false);
+  const [pendingCount, setPendingCount] = useState(null);
 
   useEffect(() => {
     loadMember();
     loadFormConfig();
     loadTagConfig();
+    loadQueueCount();
   }, [id]);
+
+  const loadQueueCount = async () => {
+    try {
+      const data = await membersAPI.getQueueCount();
+      setPendingCount(data.pending_count);
+    } catch (err) {
+      console.error('Failed to load queue count:', err);
+    }
+  };
 
   const loadFormConfig = async () => {
     try {
@@ -556,7 +567,20 @@ const MemberDetailPage = () => {
 
           {/* Vetting Status */}
           <div className="mb-6 border-t pt-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Vetting</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Vetting</h2>
+              {pendingCount !== null && (
+                <span className={`text-sm font-medium px-3 py-1 rounded-full ${
+                  pendingCount === 0
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-yellow-100 text-yellow-700'
+                }`}>
+                  {pendingCount === 0
+                    ? 'Queue empty'
+                    : `${pendingCount} remaining in queue`}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-4 mb-4">
               <span className="text-sm text-gray-600">Current status:</span>
               <span className={`inline-block px-3 py-1 text-sm font-medium rounded-full border ${statusColors[member.status]}`}>

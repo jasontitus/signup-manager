@@ -278,6 +278,19 @@ def add_member_note(
     return member
 
 
+@router.get("/queue-count")
+def get_queue_count(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the count of PENDING members in the queue.
+    Available to vetters and admins.
+    """
+    count = db.query(Member).filter(Member.status == MemberStatus.PENDING).count()
+    return {"pending_count": count}
+
+
 @router.post("/next-candidate", response_model=Optional[MemberResponse])
 def get_next_candidate(
     db: Session = Depends(get_db),

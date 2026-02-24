@@ -44,6 +44,12 @@ export const membersAPI = {
     return response.data;
   },
 
+  // Get count of pending candidates in the queue
+  getQueueCount: async () => {
+    const response = await client.get('/members/queue-count');
+    return response.data;
+  },
+
   // Get next pending candidate (auto-assigns to current vetter)
   getNextCandidate: async () => {
     const response = await client.post('/members/next-candidate');

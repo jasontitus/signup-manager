@@ -11,10 +11,21 @@ const VetterDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [gettingNext, setGettingNext] = useState(false);
   const [message, setMessage] = useState('');
+  const [pendingCount, setPendingCount] = useState(null);
 
   useEffect(() => {
     loadMembers();
+    loadQueueCount();
   }, [statusFilter]);
+
+  const loadQueueCount = async () => {
+    try {
+      const data = await membersAPI.getQueueCount();
+      setPendingCount(data.pending_count);
+    } catch (err) {
+      console.error('Failed to load queue count:', err);
+    }
+  };
 
   const loadMembers = async () => {
     setLoading(true);
@@ -35,9 +46,11 @@ const VetterDashboard = () => {
       const nextMember = await membersAPI.getNextCandidate();
       if (nextMember) {
         setMessage('New candidate assigned!');
-        loadMembers(); // Reload the list to show the new assignment
+        loadMembers();
+        loadQueueCount();
       } else {
         setMessage('No pending candidates available.');
+        setPendingCount(0);
       }
     } catch (err) {
       console.error('Failed to get next candidate:', err);
@@ -59,13 +72,28 @@ const VetterDashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
           <div className="flex justify-between items-center mb-4">
-            <h1 className="text-3xl font-bold text-gray-900">My Assigned Members</h1>
-            <Button
-              onClick={handleGetNextCandidate}
-              disabled={gettingNext}
-            >
-              {gettingNext ? 'Getting Next...' : 'Get Next Candidate'}
-            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">My Assigned Members</h1>
+              {pendingCount !== null && (
+                <p className="text-sm text-gray-600 mt-1">
+                  {pendingCount === 0
+                    ? 'No candidates waiting in the queue'
+                    : `${pendingCount} candidate${pendingCount === 1 ? '' : 's'} waiting in the queue`}
+                </p>
+              )}
+            </div>
+            {pendingCount === 0 ? (
+              <span className="inline-flex items-center px-4 py-2 bg-green-100 text-green-800 text-sm font-medium rounded-lg border border-green-300">
+                Queue Empty - All Caught Up!
+              </span>
+            ) : (
+              <Button
+                onClick={handleGetNextCandidate}
+                disabled={gettingNext}
+              >
+                {gettingNext ? 'Getting Next...' : 'Get Next Candidate'}
+              </Button>
+            )}
           </div>
 
           {message && (
@@ -79,6 +107,10 @@ const VetterDashboard = () => {
           )}
 
           <div className="flex gap-4 mb-6">
+            <div className="bg-white p-4 rounded-lg shadow flex-1 border-l-4 border-yellow-400">
+              <p className="text-sm text-gray-600">In Queue</p>
+              <p className="text-2xl font-bold text-yellow-600">{pendingCount !== null ? pendingCount : '...'}</p>
+            </div>
             <div className="bg-white p-4 rounded-lg shadow flex-1">
               <p className="text-sm text-gray-600">Assigned to Me</p>
               <p className="text-2xl font-bold text-blue-600">{assignedMembers.length}</p>
