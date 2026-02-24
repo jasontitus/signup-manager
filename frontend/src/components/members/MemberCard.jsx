@@ -11,6 +11,7 @@ const MemberCard = ({ member, searchContext, tab }) => {
     VETTED: 'bg-green-100 text-green-800',
     REJECTED: 'bg-red-100 text-red-800',
     UNSURE: 'bg-orange-100 text-orange-800',
+    NEEDS_FOLLOW_UP: 'bg-pink-100 text-pink-800',
   };
 
   return (

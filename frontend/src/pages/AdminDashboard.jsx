@@ -382,6 +382,7 @@ const AdminDashboard = () => {
   const assignedMembers = members.filter((m) => m.status === 'ASSIGNED');
   const vettedMembers = members.filter((m) => m.status === 'VETTED');
   const unsureMembers = members.filter((m) => m.status === 'UNSURE');
+  const needsFollowUpMembers = members.filter((m) => m.status === 'NEEDS_FOLLOW_UP');
   const rejectedMembers = members.filter((m) => m.status === 'REJECTED');
   const notProcessedMembers = members.filter((m) => !m.processing_completed);
   const vetters = users.filter((u) => u.role === 'VETTER' && u.is_active);
@@ -506,6 +507,7 @@ const AdminDashboard = () => {
                     { value: 'ASSIGNED', label: 'Assigned' },
                     { value: 'VETTED', label: 'Vetted' },
                     { value: 'UNSURE', label: 'Unsure' },
+                    { value: 'NEEDS_FOLLOW_UP', label: 'Needs Follow-up' },
                     { value: 'REJECTED', label: 'Rejected' },
                   ]}
                 />
@@ -571,6 +573,7 @@ const AdminDashboard = () => {
                   { key: 'ASSIGNED', label: 'Assigned', count: assignedMembers.length, color: 'text-blue-600', ring: 'ring-blue-400' },
                   { key: 'VETTED', label: 'Vetted', count: vettedMembers.length, color: 'text-green-600', ring: 'ring-green-400' },
                   { key: 'UNSURE', label: 'Unsure', count: unsureMembers.length, color: 'text-orange-600', ring: 'ring-orange-400' },
+                  { key: 'NEEDS_FOLLOW_UP', label: 'Follow-up', count: needsFollowUpMembers.length, color: 'text-pink-600', ring: 'ring-pink-400' },
                   { key: 'REJECTED', label: 'Rejected', count: rejectedMembers.length, color: 'text-red-600', ring: 'ring-red-400' },
                 ].map((stat) => (
                   <button
@@ -624,6 +627,7 @@ const AdminDashboard = () => {
                           ASSIGNED: 'bg-blue-100 text-blue-800',
                           VETTED: 'bg-green-100 text-green-800',
                           UNSURE: 'bg-orange-100 text-orange-800',
+                          NEEDS_FOLLOW_UP: 'bg-pink-100 text-pink-800',
                           REJECTED: 'bg-red-100 text-red-800',
                         };
                         return (

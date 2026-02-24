@@ -14,6 +14,7 @@ class MemberStatus(str, enum.Enum):
     VETTED = "VETTED"
     REJECTED = "REJECTED"
     UNSURE = "UNSURE"
+    NEEDS_FOLLOW_UP = "NEEDS_FOLLOW_UP"
 
 
 class Member(Base):
