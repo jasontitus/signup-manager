@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     FIRST_RUN_ADMIN_USER: Optional[str] = None
     FIRST_RUN_ADMIN_PASSWORD: Optional[str] = None
 
+    # Email notifications (Resend)
+    RESEND_API_KEY: Optional[str] = None
+    NOTIFICATION_EMAIL: Optional[str] = None
+
     # Vault file path
     VAULT_FILE: str = "/app/data/.vault"
 

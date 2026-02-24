@@ -4,8 +4,13 @@ from app.database import get_db
 from app.models.member import Member, MemberStatus
 from app.schemas.member import MemberCreate
 from app.services.blind_index import generate_blind_index
+from app.config import settings
 import json
+import logging
 import os
+import resend
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/public", tags=["Public"])
 
@@ -115,6 +120,26 @@ def submit_application(application: dict, db: Session = Depends(get_db)):
     db.add(member)
     db.commit()
     db.refresh(member)
+
+    # Send email notification (fire-and-forget)
+    if settings.RESEND_API_KEY and settings.NOTIFICATION_EMAIL:
+        try:
+            resend.api_key = settings.RESEND_API_KEY
+            pending_count = db.query(Member).filter(
+                Member.status == MemberStatus.PENDING
+            ).count()
+            resend.Emails.send({
+                "from": "Signup Manager <jason@tiltastech.com>",
+                "to": [settings.NOTIFICATION_EMAIL],
+                "subject": "New member signup",
+                "text": (
+                    f"A new member has signed up from {standard_fields.city}! "
+                    f"There are {pending_count} potential members in the "
+                    f"queue to be vetted."
+                ),
+            })
+        except Exception as e:
+            logger.error(f"Failed to send signup notification email: {e}")
 
     return {
         "message": "Application submitted successfully",
