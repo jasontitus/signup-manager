@@ -135,6 +135,57 @@ def test_vetter_can_update_own_member_status(client, db, vetter_user, vetter_tok
     assert resp.status_code == 200
 
 
+def test_update_status_to_needs_follow_up(client, db, admin_token, vetter_user):
+    """Admin can set member status to NEEDS_FOLLOW_UP."""
+    m = make_member(
+        db, email="followup@test.com",
+        status=MemberStatus.ASSIGNED,
+        assigned_vetter_id=vetter_user.id,
+    )
+    resp = client.patch(
+        f"/api/members/{m.id}/status",
+        headers=auth_header(admin_token),
+        json={"status": "NEEDS_FOLLOW_UP"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "NEEDS_FOLLOW_UP"
+
+
+def test_vetter_can_set_needs_follow_up(client, db, vetter_user, vetter_token):
+    """Vetter can set their assigned member to NEEDS_FOLLOW_UP."""
+    m = make_member(
+        db, email="vfollowup@test.com",
+        status=MemberStatus.ASSIGNED,
+        assigned_vetter_id=vetter_user.id,
+    )
+    resp = client.patch(
+        f"/api/members/{m.id}/status",
+        headers=auth_header(vetter_token),
+        json={"status": "NEEDS_FOLLOW_UP"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "NEEDS_FOLLOW_UP"
+
+
+def test_filter_by_needs_follow_up(client, db, admin_token, vetter_user):
+    """Status filter works for NEEDS_FOLLOW_UP."""
+    make_member(db, email="pending@test2.com", status=MemberStatus.PENDING)
+    make_member(
+        db, email="fu@test.com",
+        status=MemberStatus.NEEDS_FOLLOW_UP,
+        assigned_vetter_id=vetter_user.id,
+    )
+
+    resp = client.get(
+        "/api/members?status_filter=NEEDS_FOLLOW_UP",
+        headers=auth_header(admin_token),
+    )
+    assert resp.status_code == 200
+    results = resp.json()
+    assert len(results) == 1
+    assert results[0]["status"] == "NEEDS_FOLLOW_UP"
+
+
 def test_vetter_cannot_update_other_member_status(
     client, db, vetter_user2, vetter_token
 ):
