@@ -589,38 +589,42 @@ const AdminDashboard = () => {
 
             {/* Tag Filters */}
             {tagConfig && (
-              <div className="mb-4 bg-white rounded-lg shadow px-4 py-3">
-                <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
-                  <h3 className="text-sm font-semibold text-gray-700 mr-1">Filter by Tags</h3>
-                  {tagConfig.categories.map((category) => (
-                    <div key={category.key} className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-sm font-medium text-gray-700">{category.label}:</span>
-                      {category.options.map((option) => {
-                        const isActive = (tagFilters[category.key] || []).includes(option);
-                        return (
-                          <button
-                            key={option}
-                            onClick={() => handleTagFilterToggle(category.key, option)}
-                            className={`px-3 py-1.5 text-sm rounded-full border-2 font-medium transition-all cursor-pointer ${
-                              isActive
-                                ? 'bg-primary-600 text-white border-primary-600 shadow-sm'
-                                : 'bg-white text-gray-600 border-gray-300 hover:border-primary-400 hover:text-primary-700 hover:shadow-sm'
-                            }`}
-                          >
-                            {option}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
+              <div className="mb-3 bg-white rounded-lg shadow px-4 py-3">
+                <div className="flex items-baseline gap-2 mb-1">
+                  <h3 className="text-sm font-semibold text-gray-700">Tags</h3>
                   {hasActiveTagFilters && (
                     <button
                       onClick={clearTagFilters}
                       className="text-xs text-primary-600 hover:text-primary-800 font-medium"
                     >
-                      Clear filters
+                      clear
                     </button>
                   )}
+                </div>
+                <div className="space-y-1.5">
+                  {tagConfig.categories.map((category) => (
+                    <div key={category.key} className="flex items-start gap-2">
+                      <span className="text-sm font-medium text-gray-500 pt-1 shrink-0 w-24 text-right">{category.label}:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {category.options.map((option) => {
+                          const isActive = (tagFilters[category.key] || []).includes(option);
+                          return (
+                            <button
+                              key={option}
+                              onClick={() => handleTagFilterToggle(category.key, option)}
+                              className={`px-2.5 py-1 text-sm rounded-full border font-medium transition-all cursor-pointer ${
+                                isActive
+                                  ? 'bg-primary-600 text-white border-primary-600 shadow-sm'
+                                  : 'bg-white text-gray-600 border-gray-300 hover:border-primary-400 hover:text-primary-700'
+                              }`}
+                            >
+                              {option}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
