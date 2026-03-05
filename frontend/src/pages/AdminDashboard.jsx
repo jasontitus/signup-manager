@@ -375,7 +375,7 @@ const AdminDashboard = () => {
       filtered = filtered.filter((c) => notProcessedIds.has(c.id));
     }
     filtered = filterByTags(filtered);
-    return filtered;
+    return sortMembers(filtered);
   };
 
   const pendingMembers = members.filter((m) => m.status === 'PENDING');
@@ -388,6 +388,29 @@ const AdminDashboard = () => {
   const notProcessedMembers = members.filter((m) => !m.processing_completed);
   const vetters = users.filter((u) => u.role === 'VETTER' && u.is_active);
 
+  const statusSortOrder = {
+    PENDING: 0,
+    ASSIGNED: 1,
+    VETTED: 2,
+    UNSURE: 3,
+    NEEDS_FOLLOW_UP: 4,
+    REJECTED: 5,
+    ARCHIVED: 6,
+  };
+
+  const sortMembers = (memberList) => {
+    return [...memberList].sort((a, b) => {
+      // Not processed first
+      const aProcessed = a.processing_completed ? 1 : 0;
+      const bProcessed = b.processing_completed ? 1 : 0;
+      if (aProcessed !== bProcessed) return aProcessed - bProcessed;
+      // Then by status priority
+      const aOrder = statusSortOrder[a.status] ?? 99;
+      const bOrder = statusSortOrder[b.status] ?? 99;
+      return aOrder - bOrder;
+    });
+  };
+
   const applyAllFilters = (memberList) => {
     let filtered = memberList;
     if (statusFilter) {
@@ -397,7 +420,7 @@ const AdminDashboard = () => {
       filtered = filtered.filter((m) => !m.processing_completed);
     }
     filtered = filterByTags(filtered);
-    return filtered;
+    return sortMembers(filtered);
   };
 
   return (
