@@ -15,6 +15,7 @@ const statusLabels = {
   REJECTED: 'Rejected',
   UNSURE: 'Unsure',
   NEEDS_FOLLOW_UP: 'Needs Follow-up',
+  ARCHIVED: 'Archived',
 };
 
 const statusColors = {
@@ -24,6 +25,7 @@ const statusColors = {
   REJECTED: 'bg-red-100 text-red-800 border-red-300',
   UNSURE: 'bg-orange-100 text-orange-800 border-orange-300',
   NEEDS_FOLLOW_UP: 'bg-pink-100 text-pink-800 border-pink-300',
+  ARCHIVED: 'bg-gray-100 text-gray-800 border-gray-300',
 };
 
 const MemberDetailPage = () => {
@@ -607,6 +609,13 @@ const MemberDetailPage = () => {
                   className="border-pink-400 text-pink-700 hover:bg-pink-50"
                 >
                   Needs Follow-up
+                </Button>
+              )}
+              {member.status !== 'ARCHIVED' && (
+                <Button variant="secondary" onClick={() => handleStatusChange('ARCHIVED')}
+                  className="border-gray-400 text-gray-700 hover:bg-gray-50"
+                >
+                  Archive
                 </Button>
               )}
               {member.status !== 'REJECTED' && (

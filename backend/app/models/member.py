@@ -15,6 +15,7 @@ class MemberStatus(str, enum.Enum):
     REJECTED = "REJECTED"
     UNSURE = "UNSURE"
     NEEDS_FOLLOW_UP = "NEEDS_FOLLOW_UP"
+    ARCHIVED = "ARCHIVED"
 
 
 class Member(Base):

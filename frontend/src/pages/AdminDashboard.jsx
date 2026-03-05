@@ -384,6 +384,7 @@ const AdminDashboard = () => {
   const unsureMembers = members.filter((m) => m.status === 'UNSURE');
   const needsFollowUpMembers = members.filter((m) => m.status === 'NEEDS_FOLLOW_UP');
   const rejectedMembers = members.filter((m) => m.status === 'REJECTED');
+  const archivedMembers = members.filter((m) => m.status === 'ARCHIVED');
   const notProcessedMembers = members.filter((m) => !m.processing_completed);
   const vetters = users.filter((u) => u.role === 'VETTER' && u.is_active);
 
@@ -509,6 +510,7 @@ const AdminDashboard = () => {
                     { value: 'UNSURE', label: 'Unsure' },
                     { value: 'NEEDS_FOLLOW_UP', label: 'Needs Follow-up' },
                     { value: 'REJECTED', label: 'Rejected' },
+                    { value: 'ARCHIVED', label: 'Archived' },
                   ]}
                 />
                 {searchQuery && (
@@ -575,6 +577,7 @@ const AdminDashboard = () => {
                   { key: 'UNSURE', label: 'Unsure', count: unsureMembers.length, color: 'text-orange-600', ring: 'ring-orange-400' },
                   { key: 'NEEDS_FOLLOW_UP', label: 'Follow-up', count: needsFollowUpMembers.length, color: 'text-pink-600', ring: 'ring-pink-400' },
                   { key: 'REJECTED', label: 'Rejected', count: rejectedMembers.length, color: 'text-red-600', ring: 'ring-red-400' },
+                  { key: 'ARCHIVED', label: 'Archived', count: archivedMembers.length, color: 'text-gray-600', ring: 'ring-gray-400' },
                 ].map((stat) => (
                   <button
                     key={stat.key}
@@ -629,6 +632,7 @@ const AdminDashboard = () => {
                           UNSURE: 'bg-orange-100 text-orange-800',
                           NEEDS_FOLLOW_UP: 'bg-pink-100 text-pink-800',
                           REJECTED: 'bg-red-100 text-red-800',
+                          ARCHIVED: 'bg-gray-100 text-gray-800',
                         };
                         return (
                           <tr
