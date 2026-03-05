@@ -6,11 +6,13 @@
       "label": "Age Group",
       "options": [
         "Under 18",
-        "19-25",
-        "25-40",
-        "41-60",
-        "61-80",
-        "80+"
+        "19-24",
+        "25-34",
+        "35-44",
+        "45-54",
+        "55-64",
+        "65-74",
+        "75+"
       ],
       "multiple": false
     },
@@ -27,7 +29,8 @@
         "Organizational Development",
         "Organizer",
         "Writer",
-        "Musician"
+        "Musician",
+        "Elected official"
       ],
       "multiple": true
     },
