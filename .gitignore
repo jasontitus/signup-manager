@@ -52,3 +52,7 @@ htmlcov/
 
 # Logs
 *.log
+
+# Data imports and backups
+Transfer.csv
+backend/data_backup_*/
