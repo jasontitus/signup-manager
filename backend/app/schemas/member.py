@@ -30,14 +30,33 @@ class MemberTagsUpdate(BaseModel):
     tags: Dict[str, Any]
 
 
-class MemberProcessingUpdate(BaseModel):
-    """Schema for updating processing completed flag."""
-    processing_completed: bool
+class MemberArchiveUpdate(BaseModel):
+    """Schema for updating archived flag."""
+    archived: bool
+
+
+class BulkArchiveUpdate(BaseModel):
+    """Schema for bulk archive update."""
+    member_ids: List[int]
+    archived: bool
 
 
 class MemberCustomFieldsUpdate(BaseModel):
     """Schema for updating custom fields with merge semantics."""
     custom_fields: Dict[str, str]
+
+
+class BulkStatusUpdate(BaseModel):
+    """Schema for bulk status update."""
+    member_ids: List[int]
+    status: MemberStatus
+
+
+class BulkTagUpdate(BaseModel):
+    """Schema for bulk tag update (merge a single tag category onto multiple members)."""
+    member_ids: List[int]
+    tag_key: str
+    tag_value: Any
 
 
 class MemberResponse(BaseModel):
@@ -48,7 +67,7 @@ class MemberResponse(BaseModel):
     city: str
     zip_code: str
     status: MemberStatus
-    processing_completed: bool = False
+    archived: bool = False
     tags: Dict[str, Any] = {}
     assigned_vetter_id: Optional[int] = None
     created_at: datetime
@@ -70,7 +89,7 @@ class MemberDetailResponse(BaseModel):
     email: str
     custom_fields: Dict[str, str] = {}
     status: MemberStatus
-    processing_completed: bool = False
+    archived: bool = False
     tags: Dict[str, Any] = {}
     assigned_vetter_id: Optional[int] = None
     notes: Optional[str] = None

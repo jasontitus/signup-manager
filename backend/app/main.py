@@ -44,6 +44,40 @@ def run_migrations(db_engine):
                 conn.commit()
                 print("Migration: added 'tags' column to members table")
 
+            # --- Status enum cleanup migration ---
+            # Step 1: Add archived column if not exists
+            if "archived" not in existing_cols:
+                conn.execute(text(
+                    "ALTER TABLE members ADD COLUMN archived BOOLEAN NOT NULL DEFAULT 0"
+                ))
+                conn.commit()
+                print("Migration: added 'archived' column to members table")
+
+            # Step 2: Set archived=True for members with status=ARCHIVED
+            result = conn.execute(text(
+                "UPDATE members SET archived = 1 WHERE status = 'ARCHIVED' AND archived = 0"
+            ))
+            conn.commit()
+            if result.rowcount > 0:
+                print(f"Migration: marked {result.rowcount} ARCHIVED members as archived=True")
+
+            # Step 3: Update status ARCHIVED → PROCESSED
+            result = conn.execute(text(
+                "UPDATE members SET status = 'PROCESSED' WHERE status = 'ARCHIVED'"
+            ))
+            conn.commit()
+            if result.rowcount > 0:
+                print(f"Migration: changed {result.rowcount} ARCHIVED → PROCESSED")
+
+            # Step 4: Update status to PROCESSED for processing_completed=True members
+            if "processing_completed" in existing_cols:
+                result = conn.execute(text(
+                    "UPDATE members SET status = 'PROCESSED' WHERE processing_completed = 1 AND status != 'PROCESSED'"
+                ))
+                conn.commit()
+                if result.rowcount > 0:
+                    print(f"Migration: changed {result.rowcount} processing_completed → PROCESSED")
+
 
 def initialize_app():
     """Create tables, seed first admin, and initialize encryption.

@@ -31,11 +31,19 @@ const AdminDashboard = () => {
   const [tagConfig, setTagConfig] = useState(null);
   const [tagFilters, setTagFilters] = useState({});
   const [statusFilter, setStatusFilter] = useState(null);
-  const [processingFilter, setProcessingFilter] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [sortMode, setSortMode] = useState('recent');
   const [contactListMode, setContactListMode] = useState(false);
   const [contacts, setContacts] = useState([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [copiedEmails, setCopiedEmails] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedMemberIds, setSelectedMemberIds] = useState(new Set());
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [pendingBulkAction, setPendingBulkAction] = useState(null);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [bulkTagCategory, setBulkTagCategory] = useState('');
+  const [bulkTagValue, setBulkTagValue] = useState('');
   const [newUser, setNewUser] = useState({
     username: '',
     password: '',
@@ -64,6 +72,10 @@ const AdminDashboard = () => {
       handleSearch(location.state.searchQuery);
     }
   }, []);
+
+  useEffect(() => {
+    loadMembers();
+  }, [showArchived]);
 
   useEffect(() => {
     if (contactListMode) {
@@ -116,7 +128,7 @@ const AdminDashboard = () => {
   const loadMembers = async () => {
     setLoading(true);
     try {
-      const data = await membersAPI.list();
+      const data = await membersAPI.list(null, showArchived);
       setMembers(data);
     } catch (err) {
       console.error('Failed to load members:', err);
@@ -212,6 +224,66 @@ const AdminDashboard = () => {
   const clearSearch = () => {
     setSearchQuery('');
     setSearchResults([]);
+  };
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedMemberIds(new Set());
+    setSelectMode(false);
+  }, [statusFilter, showArchived, tagFilters, searchQuery, contactListMode]);
+
+  const toggleMemberSelection = (memberId) => {
+    setSelectedMemberIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(memberId)) {
+        next.delete(memberId);
+      } else {
+        next.add(memberId);
+      }
+      return next;
+    });
+  };
+
+  const selectAllVisible = (visibleMembers) => {
+    setSelectedMemberIds(new Set(visibleMembers.map((m) => m.id)));
+  };
+
+  const clearSelection = () => setSelectedMemberIds(new Set());
+
+  const confirmBulkAction = (action) => {
+    setPendingBulkAction(action);
+    setBulkConfirmOpen(true);
+  };
+
+  const executeBulkAction = async () => {
+    if (!pendingBulkAction) return;
+    setBulkActionLoading(true);
+    try {
+      const ids = Array.from(selectedMemberIds);
+      let updatedMembers;
+      if (pendingBulkAction.type === 'status') {
+        updatedMembers = await membersAPI.bulkUpdateStatus(ids, pendingBulkAction.value);
+      } else if (pendingBulkAction.type === 'archive') {
+        updatedMembers = await membersAPI.bulkUpdateArchived(ids, pendingBulkAction.value);
+      } else if (pendingBulkAction.type === 'tag') {
+        updatedMembers = await membersAPI.bulkUpdateTags(ids, pendingBulkAction.tagKey, pendingBulkAction.tagValue);
+        setBulkTagCategory('');
+        setBulkTagValue('');
+      }
+      // Merge updated members into local state
+      setMembers((prev) => {
+        const updatedMap = new Map(updatedMembers.map((m) => [m.id, m]));
+        return prev.map((m) => updatedMap.get(m.id) || m);
+      });
+      setSelectedMemberIds(new Set());
+      setSelectMode(false);
+    } catch (err) {
+      console.error('Bulk action failed:', err);
+    } finally {
+      setBulkActionLoading(false);
+      setBulkConfirmOpen(false);
+      setPendingBulkAction(null);
+    }
   };
 
   // Tag management handlers
@@ -369,11 +441,6 @@ const AdminDashboard = () => {
 
   const applyContactFilters = (contactList) => {
     let filtered = contactList;
-    if (processingFilter) {
-      // contacts endpoint doesn't have processing_completed, so we filter from local members
-      const notProcessedIds = new Set(members.filter((m) => !m.processing_completed).map((m) => m.id));
-      filtered = filtered.filter((c) => notProcessedIds.has(c.id));
-    }
     filtered = filterByTags(filtered);
     return sortMembers(filtered);
   };
@@ -384,8 +451,8 @@ const AdminDashboard = () => {
   const unsureMembers = members.filter((m) => m.status === 'UNSURE');
   const needsFollowUpMembers = members.filter((m) => m.status === 'NEEDS_FOLLOW_UP');
   const rejectedMembers = members.filter((m) => m.status === 'REJECTED');
-  const archivedMembers = members.filter((m) => m.status === 'ARCHIVED');
-  const notProcessedMembers = members.filter((m) => !m.processing_completed);
+  const processedMembers = members.filter((m) => m.status === 'PROCESSED');
+  const archivedMembers = members.filter((m) => m.archived);
   const vetters = users.filter((u) => u.role === 'VETTER' && u.is_active);
 
   const statusSortOrder = {
@@ -395,19 +462,30 @@ const AdminDashboard = () => {
     UNSURE: 3,
     NEEDS_FOLLOW_UP: 4,
     REJECTED: 5,
-    ARCHIVED: 6,
+    PROCESSED: 6,
   };
 
   const sortMembers = (memberList) => {
     return [...memberList].sort((a, b) => {
-      // Not processed first
-      const aProcessed = a.processing_completed ? 1 : 0;
-      const bProcessed = b.processing_completed ? 1 : 0;
-      if (aProcessed !== bProcessed) return aProcessed - bProcessed;
-      // Then by status priority
+      if (sortMode === 'recent') {
+        return new Date(b.updated_at) - new Date(a.updated_at);
+      }
+      if (sortMode === 'oldest') {
+        return new Date(a.created_at) - new Date(b.created_at);
+      }
+      if (sortMode === 'name') {
+        const nameA = `${a.last_name || ''} ${a.first_name || ''}`.toLowerCase();
+        const nameB = `${b.last_name || ''} ${b.first_name || ''}`.toLowerCase();
+        return nameA.localeCompare(nameB);
+      }
+      // 'status' sort: non-archived first, then by status priority, then by updated
+      const aArchived = a.archived ? 1 : 0;
+      const bArchived = b.archived ? 1 : 0;
+      if (aArchived !== bArchived) return aArchived - bArchived;
       const aOrder = statusSortOrder[a.status] ?? 99;
       const bOrder = statusSortOrder[b.status] ?? 99;
-      return aOrder - bOrder;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+      return new Date(b.updated_at) - new Date(a.updated_at);
     });
   };
 
@@ -415,9 +493,6 @@ const AdminDashboard = () => {
     let filtered = memberList;
     if (statusFilter) {
       filtered = filtered.filter((m) => m.status === statusFilter);
-    }
-    if (processingFilter) {
-      filtered = filtered.filter((m) => !m.processing_completed);
     }
     filtered = filterByTags(filtered);
     return sortMembers(filtered);
@@ -428,34 +503,42 @@ const AdminDashboard = () => {
       <Header />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tabs */}
-        <div className="border-b border-gray-200 mb-6">
-          <nav className="-mb-px flex space-x-8">
-            {['triage', 'database', 'staff', 'tags'].map((tab) => (
+        {/* Tabs + Reclaim */}
+        <div className="border-b border-gray-200 mb-4">
+          <div className="flex items-center justify-between">
+            <nav className="-mb-px flex space-x-8">
+              {['triage', 'database', 'staff', 'tags'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    if (tab === 'tags' && tagCategories.length === 0) loadTagCategories();
+                  }}
+                  className={`${
+                    activeTab === tab
+                      ? 'border-primary-500 text-primary-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm capitalize`}
+                >
+                  {tab === 'triage' ? `triage (${pendingMembers.length})` : tab}
+                </button>
+              ))}
+            </nav>
+            {(activeTab === 'database' || activeTab === 'triage') && (
               <button
-                key={tab}
-                onClick={() => {
-                  setActiveTab(tab);
-                  if (tab === 'tags' && tagCategories.length === 0) loadTagCategories();
-                }}
-                className={`${
-                  activeTab === tab
-                    ? 'border-primary-500 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize`}
+                onClick={handleReclaimStale}
+                disabled={reclaimingStale}
+                className="text-xs text-gray-400 hover:text-gray-600 transition-colors mb-1"
               >
-                {tab}
+                {reclaimingStale ? 'checking...' : 'reclaim stale'}
               </button>
-            ))}
-          </nav>
+            )}
+          </div>
         </div>
 
         {/* Triage Tab */}
         {activeTab === 'triage' && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Pending Applications ({pendingMembers.length})
-            </h2>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
               <p className="text-sm text-blue-800">
                 Applications are automatically assigned to vetters when they log in. Vetters will receive the next pending application in the queue.
@@ -476,27 +559,8 @@ const AdminDashboard = () => {
         {/* Database Tab */}
         {activeTab === 'database' && (
           <div>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">All Members</h2>
-              <div className="flex gap-2">
-                <Button
-                  onClick={toggleContactListMode}
-                  variant={contactListMode ? 'primary' : 'secondary'}
-                >
-                  {contactListMode ? 'Card View' : 'Contact List'}
-                </Button>
-                <Button
-                  onClick={handleReclaimStale}
-                  disabled={reclaimingStale}
-                  variant="secondary"
-                >
-                  {reclaimingStale ? 'Checking...' : 'Reclaim Stale Assignments'}
-                </Button>
-              </div>
-            </div>
-
             {reclaimMessage && (
-              <div className={`mb-4 p-3 rounded ${
+              <div className={`mb-3 p-2 rounded text-sm ${
                 reclaimMessage.includes('Error') ? 'bg-red-100 text-red-700' :
                 reclaimMessage.includes('0') ? 'bg-blue-100 text-blue-700' :
                 'bg-green-100 text-green-700'
@@ -505,8 +569,8 @@ const AdminDashboard = () => {
               </div>
             )}
 
-            {/* Search + Status Filter */}
-            <div className="mb-4">
+            {/* Search */}
+            <div className="mb-3">
               <div className="flex gap-2">
                 <Input
                   placeholder="Search by name, address, location, notes, or custom fields..."
@@ -521,21 +585,6 @@ const AdminDashboard = () => {
                   }}
                   className="flex-1"
                 />
-                <Select
-                  name="statusFilter"
-                  value={statusFilter || ''}
-                  onChange={(e) => setStatusFilter(e.target.value || null)}
-                  options={[
-                    { value: '', label: 'All Statuses' },
-                    { value: 'PENDING', label: 'Pending' },
-                    { value: 'ASSIGNED', label: 'Assigned' },
-                    { value: 'VETTED', label: 'Vetted' },
-                    { value: 'UNSURE', label: 'Unsure' },
-                    { value: 'NEEDS_FOLLOW_UP', label: 'Needs Follow-up' },
-                    { value: 'REJECTED', label: 'Rejected' },
-                    { value: 'ARCHIVED', label: 'Archived' },
-                  ]}
-                />
                 {searchQuery && (
                   <Button onClick={clearSearch} variant="secondary">
                     Clear
@@ -543,13 +592,7 @@ const AdminDashboard = () => {
                 )}
               </div>
               {searching && (
-                <p className="text-sm text-gray-600 mt-2">Searching...</p>
-              )}
-              {searchQuery && !searching && (
-                <p className="text-sm text-gray-600 mt-2">
-                  Found {applyAllFilters(searchResults).length} result{applyAllFilters(searchResults).length !== 1 ? 's' : ''}
-                  {(hasActiveTagFilters || statusFilter || processingFilter) && ` (${searchResults.length} before filters)`}
-                </p>
+                <p className="text-sm text-gray-600 mt-1">Searching...</p>
               )}
             </div>
 
@@ -591,54 +634,225 @@ const AdminDashboard = () => {
               </div>
             )}
 
-            {!searchQuery && (
-              <div className="mb-4 flex flex-wrap gap-3">
-                {[
-                  { key: 'PENDING', label: 'Pending', count: pendingMembers.length, color: 'text-yellow-600', ring: 'ring-yellow-400' },
-                  { key: 'ASSIGNED', label: 'Assigned', count: assignedMembers.length, color: 'text-blue-600', ring: 'ring-blue-400' },
-                  { key: 'VETTED', label: 'Vetted', count: vettedMembers.length, color: 'text-green-600', ring: 'ring-green-400' },
-                  { key: 'UNSURE', label: 'Unsure', count: unsureMembers.length, color: 'text-orange-600', ring: 'ring-orange-400' },
-                  { key: 'NEEDS_FOLLOW_UP', label: 'Follow-up', count: needsFollowUpMembers.length, color: 'text-pink-600', ring: 'ring-pink-400' },
-                  { key: 'REJECTED', label: 'Rejected', count: rejectedMembers.length, color: 'text-red-600', ring: 'ring-red-400' },
-                  { key: 'ARCHIVED', label: 'Archived', count: archivedMembers.length, color: 'text-gray-600', ring: 'ring-gray-400' },
-                ].map((stat) => (
-                  <button
-                    key={stat.key}
-                    onClick={() => setStatusFilter(statusFilter === stat.key ? null : stat.key)}
-                    className={`bg-white p-4 rounded-lg shadow flex-1 min-w-[100px] text-left cursor-pointer transition-all hover:shadow-md ${
-                      statusFilter === stat.key ? `ring-2 ${stat.ring}` : ''
-                    }`}
-                  >
-                    <p className="text-sm text-gray-600">{stat.label}</p>
-                    <p className={`text-2xl font-bold ${stat.color}`}>{stat.count}</p>
-                  </button>
-                ))}
+            {/* Status pills */}
+            <div className="mb-3 flex flex-wrap items-center gap-1.5">
+              {[
+                { key: 'PENDING', label: 'Pending', count: pendingMembers.length, bg: 'bg-yellow-50', text: 'text-yellow-700', ring: 'ring-yellow-400' },
+                { key: 'ASSIGNED', label: 'Assigned', count: assignedMembers.length, bg: 'bg-blue-50', text: 'text-blue-700', ring: 'ring-blue-400' },
+                { key: 'VETTED', label: 'Vetted', count: vettedMembers.length, bg: 'bg-green-50', text: 'text-green-700', ring: 'ring-green-400' },
+                { key: 'UNSURE', label: 'Unsure', count: unsureMembers.length, bg: 'bg-orange-50', text: 'text-orange-700', ring: 'ring-orange-400' },
+                { key: 'NEEDS_FOLLOW_UP', label: 'Follow-up', count: needsFollowUpMembers.length, bg: 'bg-pink-50', text: 'text-pink-700', ring: 'ring-pink-400' },
+                { key: 'REJECTED', label: 'Rejected', count: rejectedMembers.length, bg: 'bg-red-50', text: 'text-red-700', ring: 'ring-red-400' },
+                { key: 'PROCESSED', label: 'Processed', count: processedMembers.length, bg: 'bg-purple-50', text: 'text-purple-700', ring: 'ring-purple-400' },
+              ].map((stat) => (
                 <button
-                  onClick={() => setProcessingFilter(!processingFilter)}
-                  className={`bg-white p-4 rounded-lg shadow flex-1 min-w-[100px] text-left cursor-pointer transition-all hover:shadow-md ${
-                    processingFilter ? 'ring-2 ring-purple-400' : ''
+                  key={stat.key}
+                  onClick={() => setStatusFilter(statusFilter === stat.key ? null : stat.key)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-full cursor-pointer transition-all ${stat.bg} ${stat.text} ${
+                    statusFilter === stat.key ? `ring-2 ${stat.ring}` : 'hover:ring-1 hover:ring-gray-300'
                   }`}
                 >
-                  <p className="text-sm text-gray-600">Not Processed</p>
-                  <p className="text-2xl font-bold text-purple-600">{notProcessedMembers.length}</p>
+                  {stat.label} {stat.count}
                 </button>
+              ))}
+              <span className="text-gray-300 mx-1">|</span>
+              <button
+                onClick={() => setShowArchived(!showArchived)}
+                className={`px-2.5 py-1 text-xs font-medium rounded-full cursor-pointer transition-all bg-gray-50 text-gray-600 ${
+                  showArchived ? 'ring-2 ring-gray-400' : 'hover:ring-1 hover:ring-gray-300'
+                }`}
+              >
+                Archived {archivedMembers.length}
+              </button>
+            </div>
+
+            {/* Selection controls row */}
+            <div className="flex items-center gap-3 mb-3">
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (selectMode) {
+                    setSelectMode(false);
+                    setSelectedMemberIds(new Set());
+                  } else {
+                    setSelectMode(true);
+                  }
+                }}
+                variant={selectMode ? 'primary' : 'secondary'}
+              >
+                {selectMode ? 'Done' : 'Bulk Edit'}
+              </Button>
+              {selectMode && (
+                <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={(() => {
+                      const visible = contactListMode
+                        ? applyContactFilters(contacts)
+                        : applyAllFilters(searchQuery ? searchResults : members);
+                      return visible.length > 0 && visible.every((m) => selectedMemberIds.has(m.id));
+                    })()}
+                    onChange={() => {
+                      const visible = contactListMode
+                        ? applyContactFilters(contacts)
+                        : applyAllFilters(searchQuery ? searchResults : members);
+                      if (visible.every((m) => selectedMemberIds.has(m.id))) {
+                        clearSelection();
+                      } else {
+                        selectAllVisible(visible);
+                      }
+                    }}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  Select All
+                </label>
+              )}
+              {selectMode && selectedMemberIds.size > 0 && (
+                <span className="text-sm text-primary-700 font-medium">
+                  ({selectedMemberIds.size} selected)
+                </span>
+              )}
+            </div>
+
+            {/* Bulk Action Toolbar */}
+            {selectMode && selectedMemberIds.size > 0 && (
+              <div className="sticky top-0 z-10 bg-primary-50 border border-primary-200 rounded-lg p-3 mb-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold text-primary-800">Actions:</span>
+                  <Button size="sm" variant="secondary" onClick={() => confirmBulkAction({ type: 'status', value: 'VETTED', label: 'Vetted' })}>
+                    Mark Vetted
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => confirmBulkAction({ type: 'status', value: 'PROCESSED', label: 'Processed' })}>
+                    Mark Processed
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => confirmBulkAction({ type: 'status', value: 'PENDING', label: 'Pending' })}>
+                    Mark Pending
+                  </Button>
+                  <div className="h-4 border-l border-primary-300" />
+                  <Button size="sm" variant="secondary" onClick={() => confirmBulkAction({ type: 'archive', value: true, label: 'Archived' })}>
+                    Archive
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => confirmBulkAction({ type: 'archive', value: false, label: 'Unarchived' })}>
+                    Unarchive
+                  </Button>
+                </div>
+                {tagConfig && tagConfig.categories.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 mt-2 pt-2 border-t border-primary-200">
+                    <span className="text-sm font-semibold text-primary-800">Set Tag:</span>
+                    <select
+                      value={bulkTagCategory}
+                      onChange={(e) => { setBulkTagCategory(e.target.value); setBulkTagValue(''); }}
+                      className="text-sm px-2 py-1 border border-gray-300 rounded-lg"
+                    >
+                      <option value="">Choose category...</option>
+                      {tagConfig.categories.map((cat) => (
+                        <option key={cat.key} value={cat.key}>{cat.label}</option>
+                      ))}
+                    </select>
+                    {bulkTagCategory && (
+                      <>
+                        <select
+                          value={bulkTagValue}
+                          onChange={(e) => setBulkTagValue(e.target.value)}
+                          className="text-sm px-2 py-1 border border-gray-300 rounded-lg"
+                        >
+                          <option value="">Choose value...</option>
+                          {tagConfig.categories.find((c) => c.key === bulkTagCategory)?.options.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                        {bulkTagValue && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              const cat = tagConfig.categories.find((c) => c.key === bulkTagCategory);
+                              confirmBulkAction({
+                                type: 'tag',
+                                tagKey: bulkTagCategory,
+                                tagValue: bulkTagValue,
+                                label: `tagged as ${cat?.label}: ${bulkTagValue}`,
+                              });
+                            }}
+                          >
+                            Apply Tag
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
+            {/* Results info row: count + sort + view toggle */}
+            {(() => {
+              const displayMembers = contactListMode
+                ? applyContactFilters(contacts)
+                : applyAllFilters(searchQuery ? searchResults : members);
+              const totalCount = contactListMode ? displayMembers.length : displayMembers.length;
+              const beforeFilterCount = searchQuery ? searchResults.length : members.length;
+              const hasFilters = hasActiveTagFilters || statusFilter;
+              return (
+                <div className="flex items-center flex-wrap gap-x-4 gap-y-1 mb-3 text-sm text-gray-600">
+                  <span>
+                    {loading || loadingContacts ? 'Loading...' : `${totalCount} members`}
+                    {searchQuery && !searching && hasFilters && ` (${beforeFilterCount} before filters)`}
+                  </span>
+                  <span className="flex-1" />
+                  <span className="flex items-center gap-1 text-xs">
+                    Sort:
+                    {[
+                      { value: 'recent', label: 'Recent' },
+                      { value: 'oldest', label: 'Oldest' },
+                      { value: 'name', label: 'Name' },
+                      { value: 'status', label: 'Status' },
+                    ].map((opt, i) => (
+                      <span key={opt.value}>
+                        {i > 0 && <span className="text-gray-300 mx-0.5">&middot;</span>}
+                        <button
+                          onClick={() => setSortMode(opt.value)}
+                          className={`cursor-pointer transition-colors ${
+                            sortMode === opt.value ? 'text-primary-600 font-semibold' : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      </span>
+                    ))}
+                  </span>
+                  <button
+                    onClick={toggleContactListMode}
+                    className={`px-2 py-0.5 text-xs rounded border transition-colors ${
+                      contactListMode
+                        ? 'bg-primary-50 border-primary-300 text-primary-700'
+                        : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                    }`}
+                  >
+                    {contactListMode ? 'List' : 'Cards'}
+                  </button>
+                  {contactListMode && (
+                    <button
+                      onClick={handleCopyEmails}
+                      disabled={loadingContacts}
+                      className="px-2 py-0.5 text-xs rounded border border-gray-300 text-gray-600 hover:border-gray-400 transition-colors"
+                    >
+                      {copiedEmails ? 'Copied!' : 'Copy Emails'}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
+
             {contactListMode ? (
               <div>
-                <div className="flex justify-between items-center mb-3">
-                  <p className="text-sm text-gray-600">
-                    {loadingContacts ? 'Loading contacts...' : `${applyContactFilters(contacts).length} contacts`}
-                  </p>
-                  <Button variant="secondary" onClick={handleCopyEmails} disabled={loadingContacts}>
-                    {copiedEmails ? 'Copied!' : 'Copy Emails'}
-                  </Button>
-                </div>
                 <div className="bg-white shadow rounded-lg overflow-hidden">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
+                        {selectMode && (
+                          <th className="px-2 py-3 w-8"></th>
+                        )}
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
@@ -655,7 +869,7 @@ const AdminDashboard = () => {
                           UNSURE: 'bg-orange-100 text-orange-800',
                           NEEDS_FOLLOW_UP: 'bg-pink-100 text-pink-800',
                           REJECTED: 'bg-red-100 text-red-800',
-                          ARCHIVED: 'bg-gray-100 text-gray-800',
+                          PROCESSED: 'bg-purple-100 text-purple-800',
                         };
                         return (
                           <tr
@@ -663,6 +877,16 @@ const AdminDashboard = () => {
                             onClick={() => navigate(`/members/${contact.id}`, { state: { from: '/admin', tab: 'database' } })}
                             className="hover:bg-gray-50 cursor-pointer"
                           >
+                            {selectMode && (
+                              <td className="px-2 py-3 w-8" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedMemberIds.has(contact.id)}
+                                  onChange={() => toggleMemberSelection(contact.id)}
+                                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                />
+                              </td>
+                            )}
                             <td className="px-4 py-3 text-sm font-medium text-gray-900">
                               {contact.first_name} {contact.last_name}
                             </td>
@@ -682,21 +906,46 @@ const AdminDashboard = () => {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
                 {(() => {
                   const displayMembers = applyAllFilters(searchQuery ? searchResults : members);
-                  return displayMembers.map((member, index) => (
-                    <MemberCard
-                      key={member.id}
-                      member={member}
-                      tab="database"
-                      searchContext={searchQuery ? {
-                        query: searchQuery,
-                        resultIds: displayMembers.map(m => m.id),
-                        currentIndex: index,
-                      } : undefined}
-                    />
-                  ));
+                  return (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {displayMembers.map((member, index) => (
+                          <div key={member.id}>
+                            {selectMode && (
+                              <label
+                                className="flex items-center gap-2 px-2 py-1 cursor-pointer"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selectedMemberIds.has(member.id)}
+                                  onChange={() => toggleMemberSelection(member.id)}
+                                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 w-4 h-4"
+                                />
+                                <span className="text-xs text-gray-500">
+                                  {member.first_name} {member.last_name}
+                                </span>
+                              </label>
+                            )}
+                            <div className={selectMode && selectedMemberIds.has(member.id) ? 'ring-2 ring-primary-500 rounded-lg' : ''}>
+                              <MemberCard
+                                member={member}
+                                tab="database"
+                                searchContext={searchQuery ? {
+                                  query: searchQuery,
+                                  resultIds: displayMembers.map(m => m.id),
+                                  currentIndex: index,
+                                } : undefined}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
                 })()}
               </div>
             )}
@@ -979,6 +1228,37 @@ const AdminDashboard = () => {
           <Button onClick={handleTagFormSave} className="w-full">
             {editingCategory ? 'Save Changes' : 'Create Category'}
           </Button>
+        </div>
+      </Modal>
+
+      {/* Bulk Action Confirmation Modal */}
+      <Modal
+        isOpen={bulkConfirmOpen}
+        onClose={() => { setBulkConfirmOpen(false); setPendingBulkAction(null); }}
+        title="Confirm Bulk Action"
+      >
+        <div>
+          <p className="text-gray-700 mb-4">
+            Are you sure you want to mark <strong>{selectedMemberIds.size}</strong> member{selectedMemberIds.size !== 1 ? 's' : ''} as{' '}
+            <strong>{pendingBulkAction?.label}</strong>?
+          </p>
+          <div className="flex gap-3">
+            <Button
+              onClick={executeBulkAction}
+              className="flex-1"
+              disabled={bulkActionLoading}
+            >
+              {bulkActionLoading ? 'Updating...' : 'Confirm'}
+            </Button>
+            <Button
+              onClick={() => { setBulkConfirmOpen(false); setPendingBulkAction(null); }}
+              variant="secondary"
+              className="flex-1"
+              disabled={bulkActionLoading}
+            >
+              Cancel
+            </Button>
+          </div>
         </div>
       </Modal>
 

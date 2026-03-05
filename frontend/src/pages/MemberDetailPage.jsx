@@ -15,7 +15,7 @@ const statusLabels = {
   REJECTED: 'Rejected',
   UNSURE: 'Unsure',
   NEEDS_FOLLOW_UP: 'Needs Follow-up',
-  ARCHIVED: 'Archived',
+  PROCESSED: 'Processed',
 };
 
 const statusColors = {
@@ -25,7 +25,7 @@ const statusColors = {
   REJECTED: 'bg-red-100 text-red-800 border-red-300',
   UNSURE: 'bg-orange-100 text-orange-800 border-orange-300',
   NEEDS_FOLLOW_UP: 'bg-pink-100 text-pink-800 border-pink-300',
-  ARCHIVED: 'bg-gray-100 text-gray-800 border-gray-300',
+  PROCESSED: 'bg-purple-100 text-purple-800 border-purple-300',
 };
 
 const MemberDetailPage = () => {
@@ -122,12 +122,12 @@ const MemberDetailPage = () => {
     }
   };
 
-  const handleProcessingToggle = async () => {
+  const handleArchiveToggle = async () => {
     try {
-      const data = await membersAPI.updateProcessing(id, !member.processing_completed);
+      const data = await membersAPI.updateArchived(id, !member.archived);
       setMember(data);
     } catch (err) {
-      console.error('Failed to update processing status:', err);
+      console.error('Failed to update archived status:', err);
     }
   };
 
@@ -309,9 +309,9 @@ const MemberDetailPage = () => {
               <span className={`inline-block px-3 py-1 text-sm font-medium rounded-full border ${statusColors[member.status]}`}>
                 {statusLabels[member.status] || member.status}
               </span>
-              {member.processing_completed && (
-                <span className="inline-block ml-2 px-3 py-1 text-sm font-medium rounded-full bg-purple-100 text-purple-800 border border-purple-300">
-                  Processing Complete
+              {member.archived && (
+                <span className="inline-block ml-2 px-3 py-1 text-sm font-medium rounded-full bg-gray-100 text-gray-800 border border-gray-300">
+                  Archived
                 </span>
               )}
             </div>
@@ -611,11 +611,11 @@ const MemberDetailPage = () => {
                   Needs Follow-up
                 </Button>
               )}
-              {member.status !== 'ARCHIVED' && (
-                <Button variant="secondary" onClick={() => handleStatusChange('ARCHIVED')}
-                  className="border-gray-400 text-gray-700 hover:bg-gray-50"
+              {member.status !== 'PROCESSED' && (
+                <Button variant="secondary" onClick={() => handleStatusChange('PROCESSED')}
+                  className="border-purple-400 text-purple-700 hover:bg-purple-50"
                 >
-                  Archive
+                  Processed
                 </Button>
               )}
               {member.status !== 'REJECTED' && (
@@ -626,18 +626,18 @@ const MemberDetailPage = () => {
             </div>
           </div>
 
-          {/* Processing Completed */}
+          {/* Archive Toggle */}
           <div className="mb-6 border-t pt-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Processing</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Archive</h2>
             <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
-                checked={member.processing_completed || false}
-                onChange={handleProcessingToggle}
+                checked={member.archived || false}
+                onChange={handleArchiveToggle}
                 className="w-5 h-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
               <span className="text-sm text-gray-700">
-                All processing has been completed for this member
+                Archived (hide from default list view)
               </span>
             </label>
           </div>

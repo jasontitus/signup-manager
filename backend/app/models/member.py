@@ -15,7 +15,7 @@ class MemberStatus(str, enum.Enum):
     REJECTED = "REJECTED"
     UNSURE = "UNSURE"
     NEEDS_FOLLOW_UP = "NEEDS_FOLLOW_UP"
-    ARCHIVED = "ARCHIVED"
+    PROCESSED = "PROCESSED"
 
 
 class Member(Base):
@@ -42,8 +42,8 @@ class Member(Base):
     status = Column(Enum(MemberStatus), default=MemberStatus.PENDING, nullable=False, index=True)
     assigned_vetter_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
 
-    # Processing completed flag (separate from vetting status)
-    processing_completed = Column(Boolean, default=False, nullable=False, server_default="0")
+    # Archived flag (orthogonal to status — means "old/inactive, hide by default")
+    archived = Column(Boolean, default=False, nullable=False, server_default="0")
 
     # Tags stored as JSON (not encrypted — internal categories, not PII)
     _tags = Column("tags", Text, nullable=True)

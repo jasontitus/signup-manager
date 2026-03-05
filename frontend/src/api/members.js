@@ -8,8 +8,10 @@ export const membersAPI = {
   },
 
   // List members (filtered by role)
-  list: async (statusFilter = null) => {
-    const params = statusFilter ? { status_filter: statusFilter } : {};
+  list: async (statusFilter = null, includeArchived = false) => {
+    const params = {};
+    if (statusFilter) params.status_filter = statusFilter;
+    if (includeArchived) params.include_archived = true;
     const response = await client.get('/members', { params });
     return response.data;
   },
@@ -68,10 +70,10 @@ export const membersAPI = {
     return response.data;
   },
 
-  // Update processing completed flag
-  updateProcessing: async (memberId, processingCompleted) => {
-    const response = await client.patch(`/members/${memberId}/processing`, {
-      processing_completed: processingCompleted,
+  // Update archived flag
+  updateArchived: async (memberId, archived) => {
+    const response = await client.patch(`/members/${memberId}/archive`, {
+      archived,
     });
     return response.data;
   },
@@ -80,6 +82,34 @@ export const membersAPI = {
   updateCustomFields: async (memberId, customFields) => {
     const response = await client.patch(`/members/${memberId}/custom-fields`, {
       custom_fields: customFields,
+    });
+    return response.data;
+  },
+
+  // Bulk update status (admin only)
+  bulkUpdateStatus: async (memberIds, status) => {
+    const response = await client.patch('/members/bulk-status', {
+      member_ids: memberIds,
+      status,
+    });
+    return response.data;
+  },
+
+  // Bulk update archived flag (admin only)
+  bulkUpdateArchived: async (memberIds, archived) => {
+    const response = await client.patch('/members/bulk-archive', {
+      member_ids: memberIds,
+      archived,
+    });
+    return response.data;
+  },
+
+  // Bulk update tags (admin only)
+  bulkUpdateTags: async (memberIds, tagKey, tagValue) => {
+    const response = await client.patch('/members/bulk-tags', {
+      member_ids: memberIds,
+      tag_key: tagKey,
+      tag_value: tagValue,
     });
     return response.data;
   },

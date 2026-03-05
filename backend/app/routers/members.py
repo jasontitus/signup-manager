@@ -10,9 +10,12 @@ from app.schemas.member import (
     MemberUpdate,
     MemberNote,
     MemberTagsUpdate,
-    MemberProcessingUpdate,
+    MemberArchiveUpdate,
     MemberCustomFieldsUpdate,
-    MemberContactResponse
+    MemberContactResponse,
+    BulkStatusUpdate,
+    BulkArchiveUpdate,
+    BulkTagUpdate,
 )
 from app.dependencies import get_current_user, require_admin, check_member_access
 from app.services.audit import audit_service
@@ -24,6 +27,7 @@ router = APIRouter(prefix="/members", tags=["Members"])
 @router.get("", response_model=List[MemberResponse])
 def list_members(
     status_filter: Optional[MemberStatus] = Query(None),
+    include_archived: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -31,12 +35,17 @@ def list_members(
     List members with RBAC filtering.
     Admins see all members.
     Vetters see only assigned members.
+    By default, archived members are hidden unless include_archived=True.
     """
     query = db.query(Member)
 
     # CRITICAL: Vetter isolation - only show assigned members
     if current_user.role == UserRole.VETTER:
         query = query.filter(Member.assigned_vetter_id == current_user.id)
+
+    # Hide archived by default
+    if not include_archived:
+        query = query.filter(Member.archived == False)
 
     # Optional status filter
     if status_filter:
@@ -153,6 +162,114 @@ def get_contacts(
         details=f"Admin viewed contact list ({len(members)} members, filters: status={status_filter}, tag={tag_category}:{tag_value})"
     )
 
+    return members
+
+
+@router.patch("/bulk-status", response_model=List[MemberResponse])
+def bulk_update_status(
+    update: BulkStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Bulk update status for multiple members (admin only)."""
+    members = db.query(Member).filter(Member.id.in_(update.member_ids)).all()
+    if not members:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No members found")
+
+    for member in members:
+        old_status = member.status
+        member.status = update.status
+        audit_service.log_action(
+            db=db,
+            user_id=current_user.id,
+            member_id=member.id,
+            action="STATUS_CHANGED",
+            details=f"Bulk status change from {old_status} to {update.status}"
+        )
+
+    audit_service.log_action(
+        db=db,
+        user_id=current_user.id,
+        member_id=None,
+        action="BULK_STATUS_UPDATE",
+        details=f"Bulk updated {len(members)} member(s) to status {update.status}"
+    )
+
+    db.commit()
+    for member in members:
+        db.refresh(member)
+    return members
+
+
+@router.patch("/bulk-archive", response_model=List[MemberResponse])
+def bulk_update_archived(
+    update: BulkArchiveUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Bulk update archived flag for multiple members (admin only)."""
+    members = db.query(Member).filter(Member.id.in_(update.member_ids)).all()
+    if not members:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No members found")
+
+    for member in members:
+        member.archived = update.archived
+        audit_service.log_action(
+            db=db,
+            user_id=current_user.id,
+            member_id=member.id,
+            action="ARCHIVED_UPDATED",
+            details=f"Bulk archived set to {update.archived}"
+        )
+
+    audit_service.log_action(
+        db=db,
+        user_id=current_user.id,
+        member_id=None,
+        action="BULK_ARCHIVE_UPDATE",
+        details=f"Bulk updated {len(members)} member(s) archived to {update.archived}"
+    )
+
+    db.commit()
+    for member in members:
+        db.refresh(member)
+    return members
+
+
+@router.patch("/bulk-tags", response_model=List[MemberResponse])
+def bulk_update_tags(
+    update: BulkTagUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """Bulk set a tag category value for multiple members (admin only)."""
+    members = db.query(Member).filter(Member.id.in_(update.member_ids)).all()
+    if not members:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No members found")
+
+    for member in members:
+        tags = dict(member.tags or {})
+        tags[update.tag_key] = update.tag_value
+        member.tags = tags
+        audit_service.log_action(
+            db=db,
+            user_id=current_user.id,
+            member_id=member.id,
+            action="TAGS_UPDATED",
+            details=f"Bulk tag update: {update.tag_key} set to {update.tag_value}"
+        )
+
+    audit_service.log_action(
+        db=db,
+        user_id=current_user.id,
+        member_id=None,
+        action="BULK_TAGS_UPDATE",
+        details=f"Bulk updated {len(members)} member(s) tag {update.tag_key} to {update.tag_value}"
+    )
+
+    db.commit()
+    for member in members:
+        db.refresh(member)
     return members
 
 
@@ -409,14 +526,14 @@ def update_custom_fields(
     return member
 
 
-@router.patch("/{member_id}/processing", response_model=MemberDetailResponse)
-def update_processing_completed(
+@router.patch("/{member_id}/archive", response_model=MemberDetailResponse)
+def update_archived(
     member_id: int,
-    update: MemberProcessingUpdate,
+    update: MemberArchiveUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Update processing completed flag (admin or assigned vetter)."""
+    """Update archived flag (admin or assigned vetter)."""
     member = db.query(Member).filter(Member.id == member_id).first()
     if not member:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
@@ -427,14 +544,14 @@ def update_processing_completed(
             detail="You do not have permission to update this member"
         )
 
-    member.processing_completed = update.processing_completed
+    member.archived = update.archived
 
     audit_service.log_action(
         db=db,
         user_id=current_user.id,
         member_id=member.id,
-        action="PROCESSING_UPDATED",
-        details=f"Processing completed set to {update.processing_completed} by {current_user.username}"
+        action="ARCHIVED_UPDATED",
+        details=f"Archived set to {update.archived} by {current_user.username}"
     )
 
     db.commit()

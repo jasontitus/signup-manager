@@ -262,8 +262,8 @@ def import_csv(
                         # Decision exists but isn't yes/Y — keep as pending
                         status = MemberStatus.PENDING
                     else:
-                        # No decision at all — archived
-                        status = MemberStatus.ARCHIVED
+                        # No decision at all — processed + archived
+                        status = MemberStatus.PROCESSED
 
                     # Put CSV Notes into member.notes (visible/editable in detail view)
                     csv_notes = get_csv_field(row, "Notes")
@@ -281,6 +281,7 @@ def import_csv(
                     # Create member with non-hybrid fields only
                     member = Member(
                         status=status,
+                        archived=(status == MemberStatus.PROCESSED and not is_vetted),
                         assigned_vetter_id=vetter_id if status == MemberStatus.VETTED and vetter_id else None,
                         notes=member_notes,
                     )

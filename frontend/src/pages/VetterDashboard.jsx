@@ -147,7 +147,7 @@ const VetterDashboard = () => {
                 { value: 'UNSURE', label: 'Unsure' },
                 { value: 'NEEDS_FOLLOW_UP', label: 'Needs Follow-up' },
                 { value: 'REJECTED', label: 'Rejected' },
-                { value: 'ARCHIVED', label: 'Archived' },
+                { value: 'PROCESSED', label: 'Processed' },
               ]}
             />
           </div>
