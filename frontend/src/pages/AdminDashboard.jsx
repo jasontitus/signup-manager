@@ -500,41 +500,32 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <Header
+        tabs={[
+          { key: 'triage', label: `triage (${pendingMembers.length})` },
+          { key: 'database', label: 'database' },
+          { key: 'staff', label: 'staff' },
+          { key: 'tags', label: 'tags' },
+        ]}
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'tags' && tagCategories.length === 0) loadTagCategories();
+        }}
+        rightContent={
+          (activeTab === 'database' || activeTab === 'triage') ? (
+            <button
+              onClick={handleReclaimStale}
+              disabled={reclaimingStale}
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              {reclaimingStale ? 'checking...' : 'reclaim stale'}
+            </button>
+          ) : null
+        }
+      />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tabs + Reclaim */}
-        <div className="border-b border-gray-200 mb-4">
-          <div className="flex items-center justify-between">
-            <nav className="-mb-px flex space-x-8">
-              {['triage', 'database', 'staff', 'tags'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => {
-                    setActiveTab(tab);
-                    if (tab === 'tags' && tagCategories.length === 0) loadTagCategories();
-                  }}
-                  className={`${
-                    activeTab === tab
-                      ? 'border-primary-500 text-primary-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  } whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm capitalize`}
-                >
-                  {tab === 'triage' ? `triage (${pendingMembers.length})` : tab}
-                </button>
-              ))}
-            </nav>
-            {(activeTab === 'database' || activeTab === 'triage') && (
-              <button
-                onClick={handleReclaimStale}
-                disabled={reclaimingStale}
-                className="text-xs text-gray-400 hover:text-gray-600 transition-colors mb-1"
-              >
-                {reclaimingStale ? 'checking...' : 'reclaim stale'}
-              </button>
-            )}
-          </div>
-        </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
 
         {/* Triage Tab */}
         {activeTab === 'triage' && (
@@ -635,34 +626,38 @@ const AdminDashboard = () => {
             )}
 
             {/* Status pills */}
-            <div className="mb-3 flex flex-wrap items-center gap-1.5">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
               {[
-                { key: 'PENDING', label: 'Pending', count: pendingMembers.length, bg: 'bg-yellow-50', text: 'text-yellow-700', ring: 'ring-yellow-400' },
-                { key: 'ASSIGNED', label: 'Assigned', count: assignedMembers.length, bg: 'bg-blue-50', text: 'text-blue-700', ring: 'ring-blue-400' },
-                { key: 'VETTED', label: 'Vetted', count: vettedMembers.length, bg: 'bg-green-50', text: 'text-green-700', ring: 'ring-green-400' },
-                { key: 'UNSURE', label: 'Unsure', count: unsureMembers.length, bg: 'bg-orange-50', text: 'text-orange-700', ring: 'ring-orange-400' },
-                { key: 'NEEDS_FOLLOW_UP', label: 'Follow-up', count: needsFollowUpMembers.length, bg: 'bg-pink-50', text: 'text-pink-700', ring: 'ring-pink-400' },
-                { key: 'REJECTED', label: 'Rejected', count: rejectedMembers.length, bg: 'bg-red-50', text: 'text-red-700', ring: 'ring-red-400' },
-                { key: 'PROCESSED', label: 'Processed', count: processedMembers.length, bg: 'bg-purple-50', text: 'text-purple-700', ring: 'ring-purple-400' },
+                { key: 'PENDING', label: 'Pending', count: pendingMembers.length, bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-300', activeBg: 'bg-yellow-200', ring: 'ring-yellow-400' },
+                { key: 'ASSIGNED', label: 'Assigned', count: assignedMembers.length, bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300', activeBg: 'bg-blue-200', ring: 'ring-blue-400' },
+                { key: 'VETTED', label: 'Vetted', count: vettedMembers.length, bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300', activeBg: 'bg-green-200', ring: 'ring-green-400' },
+                { key: 'UNSURE', label: 'Unsure', count: unsureMembers.length, bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-300', activeBg: 'bg-orange-200', ring: 'ring-orange-400' },
+                { key: 'NEEDS_FOLLOW_UP', label: 'Follow-up', count: needsFollowUpMembers.length, bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-300', activeBg: 'bg-pink-200', ring: 'ring-pink-400' },
+                { key: 'REJECTED', label: 'Rejected', count: rejectedMembers.length, bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300', activeBg: 'bg-red-200', ring: 'ring-red-400' },
+                { key: 'PROCESSED', label: 'Processed', count: processedMembers.length, bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-300', activeBg: 'bg-purple-200', ring: 'ring-purple-400' },
               ].map((stat) => (
                 <button
                   key={stat.key}
                   onClick={() => setStatusFilter(statusFilter === stat.key ? null : stat.key)}
-                  className={`px-2.5 py-1 text-xs font-medium rounded-full cursor-pointer transition-all ${stat.bg} ${stat.text} ${
-                    statusFilter === stat.key ? `ring-2 ${stat.ring}` : 'hover:ring-1 hover:ring-gray-300'
+                  className={`px-3 py-1.5 text-sm font-medium rounded-full border cursor-pointer transition-all ${stat.text} ${
+                    statusFilter === stat.key
+                      ? `${stat.activeBg} ${stat.border} ring-2 ${stat.ring} shadow-sm`
+                      : `${stat.bg} ${stat.border} hover:shadow-sm`
                   }`}
                 >
-                  {stat.label} {stat.count}
+                  {stat.label} <span className="font-bold">{stat.count}</span>
                 </button>
               ))}
-              <span className="text-gray-300 mx-1">|</span>
+              <span className="text-gray-300 mx-0.5">|</span>
               <button
                 onClick={() => setShowArchived(!showArchived)}
-                className={`px-2.5 py-1 text-xs font-medium rounded-full cursor-pointer transition-all bg-gray-50 text-gray-600 ${
-                  showArchived ? 'ring-2 ring-gray-400' : 'hover:ring-1 hover:ring-gray-300'
+                className={`px-3 py-1.5 text-sm font-medium rounded-full border cursor-pointer transition-all text-gray-700 ${
+                  showArchived
+                    ? 'bg-gray-200 border-gray-400 ring-2 ring-gray-400 shadow-sm'
+                    : 'bg-gray-100 border-gray-300 hover:shadow-sm'
                 }`}
               >
-                Archived {archivedMembers.length}
+                Archived <span className="font-bold">{archivedMembers.length}</span>
               </button>
             </div>
 
