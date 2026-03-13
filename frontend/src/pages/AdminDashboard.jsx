@@ -1106,10 +1106,15 @@ const AdminDashboard = () => {
             name="role"
             value={newUser.role}
             onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-            options={[
-              { value: 'VETTER', label: 'Vetter' },
-              { value: 'SUPER_ADMIN', label: 'Super Admin' },
-            ]}
+            options={
+              currentUser?.role === 'SUPER_ADMIN'
+                ? [
+                    { value: 'VETTER', label: 'Vetter' },
+                    { value: 'GROUP_ADMIN', label: 'Group Admin' },
+                    { value: 'SUPER_ADMIN', label: 'Super Admin' },
+                  ]
+                : [{ value: 'VETTER', label: 'Vetter' }]
+            }
           />
           <Button type="submit" className="w-full mt-4">
             Create User

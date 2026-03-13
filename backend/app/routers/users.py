@@ -2,12 +2,25 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
 from app.services.auth import hash_password
-from app.dependencies import require_admin
+from app.dependencies import require_admin, ADMIN_ROLES
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+
+def _check_role_permission(current_user: User, target_role: UserRole):
+    """
+    Enforce role hierarchy for user management.
+    GROUP_ADMIN can only create/assign the VETTER role.
+    SUPER_ADMIN can assign any role.
+    """
+    if current_user.role == UserRole.GROUP_ADMIN and target_role != UserRole.VETTER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Group admins can only manage vetter accounts"
+        )
 
 
 @router.get("", response_model=List[UserResponse])
@@ -26,7 +39,9 @@ def create_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    """Create a new user (admin only)."""
+    """Create a new user (admin only). GROUP_ADMIN can only create vetters."""
+    _check_role_permission(current_user, user_data.role)
+
     # Check if username already exists
     existing = db.query(User).filter(User.username == user_data.username).first()
     if existing:
@@ -70,10 +85,21 @@ def update_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    """Update a user (admin only)."""
+    """Update a user (admin only). GROUP_ADMIN can only edit vetters."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+    # GROUP_ADMIN cannot edit non-vetter users
+    if current_user.role == UserRole.GROUP_ADMIN and user.role != UserRole.VETTER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Group admins can only manage vetter accounts"
+        )
+
+    # If changing role, enforce hierarchy
+    if user_data.role:
+        _check_role_permission(current_user, user_data.role)
 
     if user_data.password:
         user.hashed_password = hash_password(user_data.password)
@@ -96,7 +122,7 @@ def delete_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
-    """Delete a user (admin only)."""
+    """Delete a user (admin only). GROUP_ADMIN can only delete vetters."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -106,6 +132,13 @@ def delete_user(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete your own account"
+        )
+
+    # GROUP_ADMIN cannot delete non-vetter users
+    if current_user.role == UserRole.GROUP_ADMIN and user.role != UserRole.VETTER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Group admins can only manage vetter accounts"
         )
 
     db.delete(user)

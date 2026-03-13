@@ -8,6 +8,9 @@ from app.services.auth import verify_token
 
 security = HTTPBearer()
 
+# Roles that have admin-level access (can see all members, access admin dashboard)
+ADMIN_ROLES = {UserRole.SUPER_ADMIN, UserRole.GROUP_ADMIN}
+
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -44,8 +47,8 @@ async def get_current_user(
 
 
 async def require_admin(current_user: User = Depends(get_current_user)) -> User:
-    """Dependency to require SUPER_ADMIN role."""
-    if current_user.role != UserRole.SUPER_ADMIN:
+    """Dependency to require admin-level role (SUPER_ADMIN or GROUP_ADMIN)."""
+    if current_user.role not in ADMIN_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
@@ -53,13 +56,23 @@ async def require_admin(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+async def require_super_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Dependency to require SUPER_ADMIN role specifically."""
+    if current_user.role != UserRole.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Super admin access required"
+        )
+    return current_user
+
+
 def check_member_access(member: Member, user: User) -> bool:
     """
     Check if a user has access to view/edit a member.
-    Admins can access all members.
+    Admins (SUPER_ADMIN and GROUP_ADMIN) can access all members.
     Vetters can only access members assigned to them.
     """
-    if user.role == UserRole.SUPER_ADMIN:
+    if user.role in ADMIN_ROLES:
         return True
 
     if user.role == UserRole.VETTER:

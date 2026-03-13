@@ -17,7 +17,7 @@ from app.schemas.member import (
     BulkArchiveUpdate,
     BulkTagUpdate,
 )
-from app.dependencies import get_current_user, require_admin, check_member_access
+from app.dependencies import get_current_user, require_admin, check_member_access, ADMIN_ROLES
 from app.services.audit import audit_service
 from app.routers.auth import auto_assign_next_member, reclaim_stale_assignments
 
@@ -40,7 +40,7 @@ def list_members(
     query = db.query(Member)
 
     # CRITICAL: Vetter isolation - only show assigned members
-    if current_user.role == UserRole.VETTER:
+    if current_user.role not in ADMIN_ROLES:
         query = query.filter(Member.assigned_vetter_id == current_user.id)
 
     # Hide archived by default
@@ -341,7 +341,7 @@ def update_member_status(
         )
 
         # Auto-assign next member if vetter completed vetting
-        if (current_user.role == UserRole.VETTER and
+        if (current_user.role not in ADMIN_ROLES and
             update.status in [MemberStatus.VETTED, MemberStatus.REJECTED]):
             auto_assign_next_member(db, current_user.id)
 
@@ -418,7 +418,7 @@ def get_next_candidate(
     Automatically assigns the next member in queue to the current vetter.
     Returns None if no pending candidates are available.
     """
-    if current_user.role != UserRole.VETTER:
+    if current_user.role in ADMIN_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only vetters can request next candidate"

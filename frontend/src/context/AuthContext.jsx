@@ -40,7 +40,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isAdmin = () => {
+    return user?.role === 'SUPER_ADMIN' || user?.role === 'GROUP_ADMIN';
+  };
+
+  const isSuperAdmin = () => {
     return user?.role === 'SUPER_ADMIN';
+  };
+
+  const isGroupAdmin = () => {
+    return user?.role === 'GROUP_ADMIN';
   };
 
   const isVetter = () => {
@@ -54,6 +62,8 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         isAdmin,
+        isSuperAdmin,
+        isGroupAdmin,
         isVetter,
         loading,
       }}

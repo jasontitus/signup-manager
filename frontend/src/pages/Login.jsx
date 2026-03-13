@@ -20,7 +20,7 @@ const Login = () => {
     try {
       const user = await login(username, password);
       // Redirect based on role
-      if (user.role === 'SUPER_ADMIN') {
+      if (user.role === 'SUPER_ADMIN' || user.role === 'GROUP_ADMIN') {
         navigate('/admin');
       } else {
         navigate('/vetter');
