@@ -23,6 +23,10 @@ const AdminDashboard = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [userFormOpen, setUserFormOpen] = useState(false);
+  const [editUserOpen, setEditUserOpen] = useState(false);
+  const [userToEdit, setUserToEdit] = useState(null);
+  const [editUserForm, setEditUserForm] = useState({ role: '', full_name: '', is_active: true, password: '' });
+  const [editUserError, setEditUserError] = useState('');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
   const [deleteError, setDeleteError] = useState('');
@@ -155,6 +159,43 @@ const AdminDashboard = () => {
       loadUsers();
     } catch (err) {
       console.error('Failed to create user:', err);
+    }
+  };
+
+  const handleEditClick = (user) => {
+    setUserToEdit(user);
+    setEditUserForm({
+      role: user.role,
+      full_name: user.full_name,
+      is_active: user.is_active,
+      password: '',
+    });
+    setEditUserError('');
+    setEditUserOpen(true);
+  };
+
+  const handleEditUser = async (e) => {
+    e.preventDefault();
+    if (!userToEdit) return;
+    try {
+      const updates = {};
+      if (editUserForm.role !== userToEdit.role) updates.role = editUserForm.role;
+      if (editUserForm.full_name !== userToEdit.full_name) updates.full_name = editUserForm.full_name;
+      if (editUserForm.is_active !== userToEdit.is_active) updates.is_active = editUserForm.is_active;
+      if (editUserForm.password) updates.password = editUserForm.password;
+
+      if (Object.keys(updates).length === 0) {
+        setEditUserOpen(false);
+        return;
+      }
+
+      await usersAPI.update(userToEdit.id, updates);
+      setEditUserOpen(false);
+      setUserToEdit(null);
+      loadUsers();
+    } catch (err) {
+      console.error('Failed to update user:', err);
+      setEditUserError(err.response?.data?.detail || 'Failed to update user.');
     }
   };
 
@@ -468,9 +509,16 @@ const AdminDashboard = () => {
   const sortMembers = (memberList) => {
     return [...memberList].sort((a, b) => {
       if (sortMode === 'recent') {
+        // Push processed members below non-processed
+        const aProcessed = a.status === 'PROCESSED' ? 1 : 0;
+        const bProcessed = b.status === 'PROCESSED' ? 1 : 0;
+        if (aProcessed !== bProcessed) return aProcessed - bProcessed;
         return new Date(b.updated_at) - new Date(a.updated_at);
       }
       if (sortMode === 'oldest') {
+        const aProcessed = a.status === 'PROCESSED' ? 1 : 0;
+        const bProcessed = b.status === 'PROCESSED' ? 1 : 0;
+        if (aProcessed !== bProcessed) return aProcessed - bProcessed;
         return new Date(a.created_at) - new Date(b.created_at);
       }
       if (sortMode === 'name') {
@@ -1055,12 +1103,20 @@ const AdminDashboard = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {user.id !== currentUser?.id && (
-                          <button
-                            onClick={() => handleDeleteClick(user)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Delete
-                          </button>
+                          <span className="flex gap-3">
+                            <button
+                              onClick={() => handleEditClick(user)}
+                              className="text-blue-600 hover:text-blue-900"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClick(user)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Delete
+                            </button>
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -1118,6 +1174,63 @@ const AdminDashboard = () => {
           />
           <Button type="submit" className="w-full mt-4">
             Create User
+          </Button>
+        </form>
+      </Modal>
+
+      {/* Edit User Modal */}
+      <Modal
+        isOpen={editUserOpen}
+        onClose={() => { setEditUserOpen(false); setUserToEdit(null); }}
+        title={`Edit User: ${userToEdit?.username || ''}`}
+      >
+        <form onSubmit={handleEditUser}>
+          <Input
+            label="Full Name"
+            name="full_name"
+            value={editUserForm.full_name}
+            onChange={(e) => setEditUserForm({ ...editUserForm, full_name: e.target.value })}
+            required
+          />
+          <Select
+            label="Role"
+            name="role"
+            value={editUserForm.role}
+            onChange={(e) => setEditUserForm({ ...editUserForm, role: e.target.value })}
+            options={
+              currentUser?.role === 'SUPER_ADMIN'
+                ? [
+                    { value: 'VETTER', label: 'Vetter' },
+                    { value: 'GROUP_ADMIN', label: 'Group Admin' },
+                    { value: 'SUPER_ADMIN', label: 'Super Admin' },
+                  ]
+                : [{ value: 'VETTER', label: 'Vetter' }]
+            }
+          />
+          <Select
+            label="Status"
+            name="is_active"
+            value={editUserForm.is_active ? 'true' : 'false'}
+            onChange={(e) => setEditUserForm({ ...editUserForm, is_active: e.target.value === 'true' })}
+            options={[
+              { value: 'true', label: 'Active' },
+              { value: 'false', label: 'Inactive' },
+            ]}
+          />
+          <Input
+            label="New Password (leave blank to keep current)"
+            name="password"
+            type="password"
+            value={editUserForm.password}
+            onChange={(e) => setEditUserForm({ ...editUserForm, password: e.target.value })}
+          />
+          {editUserError && (
+            <div className="rounded-md bg-red-50 p-3 mt-2">
+              <p className="text-sm text-red-800">{editUserError}</p>
+            </div>
+          )}
+          <Button type="submit" className="w-full mt-4">
+            Save Changes
           </Button>
         </form>
       </Modal>

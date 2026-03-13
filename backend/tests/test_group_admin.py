@@ -353,6 +353,181 @@ def test_group_admin_cannot_delete_another_group_admin(client, db, group_admin_t
 
 
 # ---------------------------------------------------------------------------
+# Edit user — role changes, password, active status
+# ---------------------------------------------------------------------------
+
+def test_super_admin_can_change_user_to_group_admin(client, db, admin_user, admin_token):
+    """SUPER_ADMIN can promote a vetter to GROUP_ADMIN."""
+    vetter = User(
+        username="promote-to-ga",
+        hashed_password=hash_password("password"),
+        role=UserRole.VETTER,
+        full_name="Soon GA",
+        is_active=True,
+    )
+    db.add(vetter)
+    db.commit()
+    db.refresh(vetter)
+
+    resp = client.patch(
+        f"/api/users/{vetter.id}",
+        headers=auth_header(admin_token),
+        json={"role": "GROUP_ADMIN"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["role"] == "GROUP_ADMIN"
+
+
+def test_super_admin_can_demote_group_admin_to_vetter(client, db, admin_user, admin_token):
+    """SUPER_ADMIN can demote a GROUP_ADMIN to VETTER."""
+    ga = User(
+        username="demote-ga",
+        hashed_password=hash_password("password"),
+        role=UserRole.GROUP_ADMIN,
+        full_name="Demote Me",
+        is_active=True,
+    )
+    db.add(ga)
+    db.commit()
+    db.refresh(ga)
+
+    resp = client.patch(
+        f"/api/users/{ga.id}",
+        headers=auth_header(admin_token),
+        json={"role": "VETTER"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["role"] == "VETTER"
+
+
+def test_group_admin_cannot_promote_vetter_to_group_admin(client, db, group_admin_token):
+    """GROUP_ADMIN cannot promote a vetter to GROUP_ADMIN."""
+    vetter = User(
+        username="no-promote-ga",
+        hashed_password=hash_password("password"),
+        role=UserRole.VETTER,
+        full_name="No Promote",
+        is_active=True,
+    )
+    db.add(vetter)
+    db.commit()
+    db.refresh(vetter)
+
+    resp = client.patch(
+        f"/api/users/{vetter.id}",
+        headers=auth_header(group_admin_token),
+        json={"role": "GROUP_ADMIN"},
+    )
+    assert resp.status_code == 403
+
+
+def test_group_admin_cannot_edit_another_group_admin(client, db, group_admin_token):
+    """GROUP_ADMIN cannot edit another GROUP_ADMIN user."""
+    other_ga = User(
+        username="other-ga-edit",
+        hashed_password=hash_password("password"),
+        role=UserRole.GROUP_ADMIN,
+        full_name="Other GA",
+        is_active=True,
+    )
+    db.add(other_ga)
+    db.commit()
+    db.refresh(other_ga)
+
+    resp = client.patch(
+        f"/api/users/{other_ga.id}",
+        headers=auth_header(group_admin_token),
+        json={"full_name": "Hacked"},
+    )
+    assert resp.status_code == 403
+
+
+def test_group_admin_can_change_vetter_password(client, db, group_admin_token):
+    """GROUP_ADMIN can reset a vetter's password."""
+    vetter = User(
+        username="reset-pw",
+        hashed_password=hash_password("old-password"),
+        role=UserRole.VETTER,
+        full_name="Reset PW",
+        is_active=True,
+    )
+    db.add(vetter)
+    db.commit()
+    db.refresh(vetter)
+
+    resp = client.patch(
+        f"/api/users/{vetter.id}",
+        headers=auth_header(group_admin_token),
+        json={"password": "new-password-123"},
+    )
+    assert resp.status_code == 200
+
+    # Verify new password works
+    resp = client.post("/api/auth/login", json={
+        "username": "reset-pw",
+        "password": "new-password-123",
+    })
+    assert resp.status_code == 200
+
+
+def test_group_admin_can_reactivate_vetter(client, db, group_admin_token):
+    """GROUP_ADMIN can reactivate an inactive vetter."""
+    vetter = User(
+        username="reactivate-me",
+        hashed_password=hash_password("password"),
+        role=UserRole.VETTER,
+        full_name="Reactivate Me",
+        is_active=False,
+    )
+    db.add(vetter)
+    db.commit()
+    db.refresh(vetter)
+
+    resp = client.patch(
+        f"/api/users/{vetter.id}",
+        headers=auth_header(group_admin_token),
+        json={"is_active": True},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_active"] is True
+
+
+def test_super_admin_can_edit_group_admin(client, db, admin_user, admin_token):
+    """SUPER_ADMIN can edit a GROUP_ADMIN user."""
+    ga = User(
+        username="edit-ga",
+        hashed_password=hash_password("password"),
+        role=UserRole.GROUP_ADMIN,
+        full_name="Edit GA",
+        is_active=True,
+    )
+    db.add(ga)
+    db.commit()
+    db.refresh(ga)
+
+    resp = client.patch(
+        f"/api/users/{ga.id}",
+        headers=auth_header(admin_token),
+        json={"full_name": "Edited GA", "is_active": False},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["full_name"] == "Edited GA"
+    assert resp.json()["is_active"] is False
+
+
+def test_super_admin_can_create_group_admin(client, admin_user, admin_token):
+    """SUPER_ADMIN can create a GROUP_ADMIN user."""
+    resp = client.post("/api/users", headers=auth_header(admin_token), json={
+        "username": "new-ga",
+        "password": "password123",
+        "role": "GROUP_ADMIN",
+        "full_name": "New Group Admin",
+    })
+    assert resp.status_code == 201
+    assert resp.json()["role"] == "GROUP_ADMIN"
+
+
+# ---------------------------------------------------------------------------
 # Vetter still cannot access user management
 # ---------------------------------------------------------------------------
 
