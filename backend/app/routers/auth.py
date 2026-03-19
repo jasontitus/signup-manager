@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime, timedelta
@@ -96,7 +97,7 @@ def auto_assign_next_member(db: Session, vetter_id: int) -> Optional[Member]:
 @router.post("/login", response_model=TokenResponse)
 def login(credentials: LoginRequest, db: Session = Depends(get_db)):
     """Authenticate user and return JWT token."""
-    user = db.query(User).filter(User.username == credentials.username).first()
+    user = db.query(User).filter(func.lower(User.username) == credentials.username.lower()).first()
 
     if not user or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(

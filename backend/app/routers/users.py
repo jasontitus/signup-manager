@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
@@ -43,7 +44,7 @@ def create_user(
     _check_role_permission(current_user, user_data.role)
 
     # Check if username already exists
-    existing = db.query(User).filter(User.username == user_data.username).first()
+    existing = db.query(User).filter(func.lower(User.username) == user_data.username.lower()).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
