@@ -168,7 +168,7 @@ const PublicApplicationForm = () => {
                 required
               />
               <Input
-                label="Email Address (for newsletter)"
+                label="Email Address"
                 name="email"
                 type="email"
                 value={formData.email}

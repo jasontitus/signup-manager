@@ -1,15 +1,8 @@
 {
   "version": "1.0",
+  "title": "Joining the Indivisible Palo Alto Plus Signal Community",
+  "description": "Thank you for your interest in joining the IPA+ Signal community! Our Signal members have full access to our activities and communications. Being on Signal allows you to receive updates and discuss what is happening with other members in real time.\n\nWe ask for the information below for safety purposes, as well as to understand which Signal channels would be most interesting for you.",
   "fields": [
-    {
-      "key": "where_learn",
-      "label": "Where did you learn about IPA+?",
-      "type": "text",
-      "required": false,
-      "validation": {
-        "maxLength": 200
-      }
-    },
     {
       "key": "superpower",
       "label": "What personal talent, skill, experience, or superpower do you bring to the group?",
@@ -31,21 +24,22 @@
       }
     },
     {
-      "key": "know_member",
-      "label": "Do you know someone who is a current member? If so, who?",
-      "type": "textarea",
-      "required": false,
-      "validation": {
-        "maxLength": 500
-      }
-    },
-    {
-      "key": "hoped_impact",
-      "label": "What impact do you hope to have by joining? (If you don't know, that's OK)",
+      "key": "area_of_interest",
+      "label": "Do you have a main area of interest? If so, please share.",
       "type": "textarea",
       "required": false,
       "validation": {
         "maxLength": 1000
+      }
+    },
+    {
+      "key": "signal_experience",
+      "label": "Do you have experience with Signal?",
+      "type": "textarea",
+      "placeholder": "Experience is not required!",
+      "required": false,
+      "validation": {
+        "maxLength": 500
       }
     }
   ]
