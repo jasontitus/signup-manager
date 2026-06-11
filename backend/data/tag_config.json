@@ -30,7 +30,8 @@
         "Organizer",
         "Writer",
         "Musician",
-        "Elected official"
+        "Elected official",
+        "Management"
       ],
       "multiple": true
     },
@@ -44,7 +45,10 @@
         "Communications",
         "Writing",
         "Musician",
-        "DJ"
+        "DJ",
+        "Management",
+        "Organizational or leadership development",
+        "Finance"
       ],
       "multiple": true
     }

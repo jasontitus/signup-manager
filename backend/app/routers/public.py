@@ -130,7 +130,7 @@ def submit_application(application: dict, db: Session = Depends(get_db)):
             ).count()
             resend.Emails.send({
                 "from": "Signup Manager <jason@tiltastech.com>",
-                "to": [settings.NOTIFICATION_EMAIL],
+                "to": [e.strip() for e in settings.NOTIFICATION_EMAIL.split(",")],
                 "subject": "New member signup",
                 "text": (
                     f"A new member has signed up from {standard_fields.city}! "

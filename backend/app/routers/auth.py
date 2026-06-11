@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -9,6 +10,8 @@ from app.models.member import Member, MemberStatus
 from app.schemas.auth import LoginRequest, TokenResponse
 from app.services.auth import verify_password, create_access_token
 from app.services.audit import audit_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -100,6 +103,7 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(func.lower(User.username) == credentials.username.lower()).first()
 
     if not user or not verify_password(credentials.password, user.hashed_password):
+        logger.warning("Login failed for username=%r", credentials.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -107,10 +111,13 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
         )
 
     if not user.is_active:
+        logger.warning("Login attempt by inactive user=%r (id=%s)", user.username, user.id)
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is inactive"
         )
+
+    logger.info("Login succeeded for user=%r (id=%s, role=%s)", user.username, user.id, user.role.value)
 
     # Auto-assign next pending member to vetter on login
     if user.role == UserRole.VETTER:
