@@ -11,6 +11,7 @@ A secure membership application portal with strict role-based access control, fi
   - Vetter: Access only to assigned members
 - **Automated Vetting Queue**: Auto-assignment of candidates to vetters with stale assignment reclamation
 - **Audit Logging**: All PII access is logged with user, timestamp, and action
+- **CSV Export**: Admins can export members to CSV with a custom field selection and sort order
 - **Public Application Form**: No authentication required for submitting applications
 - **Docker Deployment**: Containerized for easy deployment to Raspberry Pi
 
@@ -145,7 +146,19 @@ The `*.local.json` pattern is gitignored, so your instance-specific customizatio
 3. Manually assign applications to specific vetters (optional - auto-assignment handles this automatically)
 4. Manage all members in the **Database** tab
    - Click "Reclaim Stale Assignments" to manually recover assignments from inactive vetters
+   - Click "Export CSV" to download members as a CSV file
 5. Manage users in the **Staff** tab
+
+### CSV Export
+
+Admins can export member data from the **Database** tab via the "Export CSV" button:
+
+- **Field selection**: Choose which columns to include (name, email, phone, address, city, zip, status, tags, notes, applied/updated dates)
+- **Sort options**: Sort by any field, ascending or descending
+- **Filter aware**: The active status filter and archived toggle are applied to the export
+- **Audited**: Every export is recorded in the audit log with the admin's username, the number of members exported, and the fields included
+
+The endpoint (`GET /api/members/export`) is admin-only. PII is decrypted server-side at export time; handle downloaded files according to your data-handling policy.
 
 ### Vetter Workflow
 
