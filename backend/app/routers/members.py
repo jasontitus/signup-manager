@@ -1,4 +1,7 @@
+import csv
+import io
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
@@ -163,6 +166,90 @@ def get_contacts(
     )
 
     return members
+
+
+EXPORTABLE_FIELDS = {
+    "first_name": "First Name",
+    "last_name": "Last Name",
+    "email": "Email",
+    "phone_number": "Phone",
+    "street_address": "Street Address",
+    "city": "City",
+    "zip_code": "Zip Code",
+    "status": "Status",
+    "tags": "Tags",
+    "notes": "Notes",
+    "created_at": "Applied",
+    "updated_at": "Updated",
+}
+
+
+@router.get("/export")
+def export_members_csv(
+    fields: str = Query(..., description="Comma-separated field names to include"),
+    sort_by: str = Query("created_at", description="Field to sort by"),
+    sort_order: str = Query("desc", description="asc or desc"),
+    status_filter: Optional[MemberStatus] = Query(None),
+    include_archived: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """Export members as CSV with selected fields (admin only)."""
+    requested_fields = [f.strip() for f in fields.split(",") if f.strip() in EXPORTABLE_FIELDS]
+    if not requested_fields:
+        raise HTTPException(status_code=400, detail="No valid fields specified")
+
+    query = db.query(Member)
+    if not include_archived:
+        query = query.filter(Member.archived == False)
+    if status_filter:
+        query = query.filter(Member.status == status_filter)
+
+    members = query.all()
+
+    # Sort in Python (PII fields are encrypted in DB, can't sort there)
+    reverse = sort_order == "desc"
+    def sort_key(m):
+        val = getattr(m, sort_by, "") or ""
+        if isinstance(val, str):
+            return val.lower()
+        return val
+    try:
+        members.sort(key=sort_key, reverse=reverse)
+    except TypeError:
+        pass
+
+    # Build CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([EXPORTABLE_FIELDS[f] for f in requested_fields])
+    for m in members:
+        row = []
+        for f in requested_fields:
+            val = getattr(m, f, "")
+            if f == "tags" and isinstance(val, dict):
+                val = "; ".join(f"{k}: {v}" for k, v in val.items()) if val else ""
+            elif f in ("created_at", "updated_at") and val:
+                val = val.strftime("%Y-%m-%d %H:%M")
+            elif val is None:
+                val = ""
+            row.append(str(val))
+        writer.writerow(row)
+
+    audit_service.log_action(
+        db=db,
+        user_id=current_user.id,
+        member_id=None,
+        action="EXPORTED_CSV",
+        details=f"{current_user.username} exported {len(members)} members, fields: {','.join(requested_fields)}"
+    )
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=members-export.csv"},
+    )
 
 
 @router.patch("/bulk-status", response_model=List[MemberResponse])

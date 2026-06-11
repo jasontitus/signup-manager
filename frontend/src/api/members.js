@@ -120,6 +120,20 @@ export const membersAPI = {
     return response.data;
   },
 
+  // Export members as CSV (admin only)
+  exportCSV: async (params) => {
+    const response = await client.get('/members/export', {
+      params,
+      responseType: 'blob',
+    });
+    const url = window.URL.createObjectURL(response.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'members-export.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  },
+
   // Delete member (admin only)
   delete: async (memberId) => {
     const response = await client.delete(`/members/${memberId}`);

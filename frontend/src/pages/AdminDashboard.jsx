@@ -48,6 +48,16 @@ const AdminDashboard = () => {
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [bulkTagCategory, setBulkTagCategory] = useState('');
   const [bulkTagValue, setBulkTagValue] = useState('');
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportFields, setExportFields] = useState({
+    first_name: true, last_name: true, email: true, phone_number: false,
+    street_address: false, city: true, zip_code: true, status: true,
+    tags: false, notes: false, created_at: true, updated_at: false,
+  });
+  const [exportSortBy, setExportSortBy] = useState('created_at');
+  const [exportSortOrder, setExportSortOrder] = useState('desc');
+  const [exporting, setExporting] = useState(false);
+
   const [newUser, setNewUser] = useState({
     username: '',
     password: '',
@@ -486,6 +496,29 @@ const AdminDashboard = () => {
     return sortMembers(filtered);
   };
 
+  const handleExport = async () => {
+    const selectedFields = Object.entries(exportFields)
+      .filter(([, v]) => v)
+      .map(([k]) => k);
+    if (selectedFields.length === 0) return;
+    setExporting(true);
+    try {
+      const params = {
+        fields: selectedFields.join(','),
+        sort_by: exportSortBy,
+        sort_order: exportSortOrder,
+      };
+      if (statusFilter) params.status_filter = statusFilter;
+      if (showArchived) params.include_archived = true;
+      await membersAPI.exportCSV(params);
+      setExportModalOpen(false);
+    } catch (err) {
+      console.error('Export failed:', err);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const pendingMembers = members.filter((m) => m.status === 'PENDING');
   const assignedMembers = members.filter((m) => m.status === 'ASSIGNED');
   const vettedMembers = members.filter((m) => m.status === 'VETTED');
@@ -887,6 +920,12 @@ const AdminDashboard = () => {
                       {copiedEmails ? 'Copied!' : 'Copy Emails'}
                     </button>
                   )}
+                  <button
+                    onClick={() => setExportModalOpen(true)}
+                    className="px-2 py-0.5 text-xs rounded border border-gray-300 text-gray-600 hover:border-gray-400 transition-colors"
+                  >
+                    Export CSV
+                  </button>
                 </div>
               );
             })()}
@@ -1376,6 +1415,93 @@ const AdminDashboard = () => {
               Cancel
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Export CSV Modal */}
+      <Modal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Export Members to CSV"
+      >
+        <div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Fields to include</label>
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries({
+                first_name: 'First Name', last_name: 'Last Name', email: 'Email',
+                phone_number: 'Phone', street_address: 'Street Address', city: 'City',
+                zip_code: 'Zip Code', status: 'Status', tags: 'Tags', notes: 'Notes',
+                created_at: 'Applied', updated_at: 'Updated',
+              }).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={exportFields[key]}
+                    onChange={() => setExportFields((prev) => ({ ...prev, [key]: !prev[key] }))}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setExportFields(Object.fromEntries(Object.keys(exportFields).map((k) => [k, true])))}
+                className="text-xs text-primary-600 hover:text-primary-800 font-medium"
+              >
+                Select all
+              </button>
+              <button
+                type="button"
+                onClick={() => setExportFields(Object.fromEntries(Object.keys(exportFields).map((k) => [k, false])))}
+                className="text-xs text-primary-600 hover:text-primary-800 font-medium"
+              >
+                Clear all
+              </button>
+            </div>
+          </div>
+          <div className="flex gap-4 mb-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sort by</label>
+              <select
+                value={exportSortBy}
+                onChange={(e) => setExportSortBy(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              >
+                {Object.entries({
+                  first_name: 'First Name', last_name: 'Last Name', city: 'City',
+                  zip_code: 'Zip Code', status: 'Status', created_at: 'Applied', updated_at: 'Updated',
+                }).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Order</label>
+              <select
+                value={exportSortOrder}
+                onChange={(e) => setExportSortOrder(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              >
+                <option value="asc">A to Z / Oldest first</option>
+                <option value="desc">Z to A / Newest first</option>
+              </select>
+            </div>
+          </div>
+          {(statusFilter || showArchived) && (
+            <p className="text-xs text-gray-500 mb-3">
+              Current filters will be applied: {statusFilter && `status=${statusFilter}`}{statusFilter && showArchived && ', '}{showArchived && 'including archived'}
+            </p>
+          )}
+          <Button
+            onClick={handleExport}
+            className="w-full"
+            disabled={exporting || !Object.values(exportFields).some(Boolean)}
+          >
+            {exporting ? 'Exporting...' : 'Download CSV'}
+          </Button>
         </div>
       </Modal>
 
