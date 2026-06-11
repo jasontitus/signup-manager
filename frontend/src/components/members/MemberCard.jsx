@@ -10,8 +10,19 @@ const MemberCard = ({ member, searchContext, tab }) => {
     ASSIGNED: 'bg-blue-100 text-blue-800',
     VETTED: 'bg-green-100 text-green-800',
     REJECTED: 'bg-red-100 text-red-800',
-    UNSURE: 'bg-orange-100 text-orange-800',
     NEEDS_FOLLOW_UP: 'bg-pink-100 text-pink-800',
+    ONE_MONTH_FOLLOWUP: 'bg-orange-100 text-orange-800',
+    SIX_MONTH_FOLLOWUP: 'bg-indigo-100 text-indigo-800',
+    IN_SIGNAL: 'bg-purple-100 text-purple-800',
+    DECLINED_SIGNAL: 'bg-stone-100 text-stone-700',
+  };
+
+  const statusLabels = {
+    NEEDS_FOLLOW_UP: 'FOLLOW-UP',
+    ONE_MONTH_FOLLOWUP: '1-MO FOLLOWUP',
+    SIX_MONTH_FOLLOWUP: '6-MO FOLLOWUP',
+    IN_SIGNAL: 'IN SIGNAL',
+    DECLINED_SIGNAL: 'DECLINED SIGNAL',
   };
 
   return (
@@ -36,7 +47,7 @@ const MemberCard = ({ member, searchContext, tab }) => {
             statusColors[member.status]
           }`}
         >
-          {member.status}
+          {statusLabels[member.status] || member.status}
         </span>
       </div>
       <div className="text-sm text-gray-600 space-y-1">

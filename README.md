@@ -225,6 +225,27 @@ The system automatically manages the vetting queue to ensure candidates don't ge
 - **Queue Priority**: Candidates are assigned in FIFO order (oldest applications first)
 - **Manual Override**: Admins can manually reclaim stale assignments or assign specific candidates to specific vetters
 
+## Member Statuses & Follow-up Loop
+
+Statuses: `PENDING` → `ASSIGNED` (being vetted) → `VETTED` / `REJECTED` / `NEEDS_FOLLOW_UP`, then
+`IN_SIGNAL` (the "resting" status — member has been added to Signal), `DECLINED_SIGNAL` (signed up,
+then decided against Signal), and the system-managed `ONE_MONTH_FOLLOWUP` / `SIX_MONTH_FOLLOWUP`.
+
+### Status change notifications
+
+- Marking a member **Vetted** or **Needs Follow-up** emails `VETTING_NOTIFICATION_EMAIL` with the member's name
+- Bulk status changes send one digest email listing all affected names
+
+### Follow-up pings (background scheduler, runs hourly)
+
+- **One month after vetting**: member moves to `ONE_MONTH_FOLLOWUP` and `FOLLOWUP_NOTIFICATION_EMAIL` is emailed
+- **Six months after entering In Signal**: member moves to `SIX_MONTH_FOLLOWUP` and `FOLLOWUP_NOTIFICATION_EMAIL` is emailed
+- **Recurring loop**: after completing a follow-up, set the member back to **In Signal** — that restarts the
+  six-month timer, so they resurface for a check-in every six months
+- Multiple due members are batched into a single digest email per check
+- Emails require `RESEND_API_KEY`; recipient addresses are configurable via
+  `VETTING_NOTIFICATION_EMAIL` and `FOLLOWUP_NOTIFICATION_EMAIL` in `.env`
+
 ## Testing
 
 Run backend tests:

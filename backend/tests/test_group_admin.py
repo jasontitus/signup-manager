@@ -80,10 +80,10 @@ def test_group_admin_can_update_member_status(client, db, group_admin_token):
     resp = client.patch(
         f"/api/members/{member.id}/status",
         headers=auth_header(group_admin_token),
-        json={"status": "PROCESSED"},
+        json={"status": "IN_SIGNAL"},
     )
     assert resp.status_code == 200
-    assert resp.json()["status"] == "PROCESSED"
+    assert resp.json()["status"] == "IN_SIGNAL"
 
 
 def test_group_admin_can_add_notes(client, db, group_admin_token):
@@ -123,7 +123,7 @@ def test_group_admin_can_bulk_status(client, db, group_admin_token):
     resp = client.patch(
         "/api/members/bulk-status",
         headers=auth_header(group_admin_token),
-        json={"member_ids": [m1.id, m2.id], "status": "PROCESSED"},
+        json={"member_ids": [m1.id, m2.id], "status": "IN_SIGNAL"},
     )
     assert resp.status_code == 200
 

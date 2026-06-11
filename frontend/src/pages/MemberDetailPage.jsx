@@ -13,9 +13,11 @@ const statusLabels = {
   ASSIGNED: 'Under Review',
   VETTED: 'Approved',
   REJECTED: 'Rejected',
-  UNSURE: 'Unsure',
   NEEDS_FOLLOW_UP: 'Needs Follow-up',
-  PROCESSED: 'Processed',
+  ONE_MONTH_FOLLOWUP: '1-Month Followup',
+  SIX_MONTH_FOLLOWUP: '6-Month Followup',
+  IN_SIGNAL: 'In Signal',
+  DECLINED_SIGNAL: 'Declined Signal',
 };
 
 const statusColors = {
@@ -23,9 +25,11 @@ const statusColors = {
   ASSIGNED: 'bg-blue-100 text-blue-800 border-blue-300',
   VETTED: 'bg-green-100 text-green-800 border-green-300',
   REJECTED: 'bg-red-100 text-red-800 border-red-300',
-  UNSURE: 'bg-orange-100 text-orange-800 border-orange-300',
   NEEDS_FOLLOW_UP: 'bg-pink-100 text-pink-800 border-pink-300',
-  PROCESSED: 'bg-purple-100 text-purple-800 border-purple-300',
+  ONE_MONTH_FOLLOWUP: 'bg-orange-100 text-orange-800 border-orange-300',
+  SIX_MONTH_FOLLOWUP: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+  IN_SIGNAL: 'bg-purple-100 text-purple-800 border-purple-300',
+  DECLINED_SIGNAL: 'bg-stone-100 text-stone-700 border-stone-300',
 };
 
 const MemberDetailPage = () => {
@@ -597,13 +601,6 @@ const MemberDetailPage = () => {
                   Accept
                 </Button>
               )}
-              {member.status !== 'UNSURE' && (
-                <Button variant="secondary" onClick={() => handleStatusChange('UNSURE')}
-                  className="border-orange-400 text-orange-700 hover:bg-orange-50"
-                >
-                  Unsure
-                </Button>
-              )}
               {member.status !== 'NEEDS_FOLLOW_UP' && (
                 <Button variant="secondary" onClick={() => handleStatusChange('NEEDS_FOLLOW_UP')}
                   className="border-pink-400 text-pink-700 hover:bg-pink-50"
@@ -611,11 +608,18 @@ const MemberDetailPage = () => {
                   Needs Follow-up
                 </Button>
               )}
-              {member.status !== 'PROCESSED' && (
-                <Button variant="secondary" onClick={() => handleStatusChange('PROCESSED')}
+              {member.status !== 'IN_SIGNAL' && (
+                <Button variant="secondary" onClick={() => handleStatusChange('IN_SIGNAL')}
                   className="border-purple-400 text-purple-700 hover:bg-purple-50"
                 >
-                  Processed
+                  In Signal
+                </Button>
+              )}
+              {member.status !== 'DECLINED_SIGNAL' && (
+                <Button variant="secondary" onClick={() => handleStatusChange('DECLINED_SIGNAL')}
+                  className="border-stone-400 text-stone-700 hover:bg-stone-50"
+                >
+                  Declined Signal
                 </Button>
               )}
               {member.status !== 'REJECTED' && (

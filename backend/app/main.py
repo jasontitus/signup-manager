@@ -1,3 +1,6 @@
+import asyncio
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -61,22 +64,78 @@ def run_migrations(db_engine):
             if result.rowcount > 0:
                 print(f"Migration: marked {result.rowcount} ARCHIVED members as archived=True")
 
-            # Step 3: Update status ARCHIVED → PROCESSED
+            # Step 3: Update status ARCHIVED → IN_SIGNAL (formerly PROCESSED)
             result = conn.execute(text(
-                "UPDATE members SET status = 'PROCESSED' WHERE status = 'ARCHIVED'"
+                "UPDATE members SET status = 'IN_SIGNAL' WHERE status = 'ARCHIVED'"
             ))
             conn.commit()
             if result.rowcount > 0:
-                print(f"Migration: changed {result.rowcount} ARCHIVED → PROCESSED")
+                print(f"Migration: changed {result.rowcount} ARCHIVED → IN_SIGNAL")
 
-            # Step 4: Update status to PROCESSED for processing_completed=True members
+            # Step 4: Update status to IN_SIGNAL for processing_completed=True members
             if "processing_completed" in existing_cols:
                 result = conn.execute(text(
-                    "UPDATE members SET status = 'PROCESSED' WHERE processing_completed = 1 AND status != 'PROCESSED'"
+                    "UPDATE members SET status = 'IN_SIGNAL' WHERE processing_completed = 1 AND status NOT IN ('IN_SIGNAL', 'PROCESSED')"
                 ))
                 conn.commit()
                 if result.rowcount > 0:
-                    print(f"Migration: changed {result.rowcount} processing_completed → PROCESSED")
+                    print(f"Migration: changed {result.rowcount} processing_completed → IN_SIGNAL")
+
+            # --- Status rename migration (June 2026) ---
+            # PROCESSED renamed to IN_SIGNAL; UNSURE removed (folded into NEEDS_FOLLOW_UP)
+            result = conn.execute(text(
+                "UPDATE members SET status = 'IN_SIGNAL' WHERE status = 'PROCESSED'"
+            ))
+            conn.commit()
+            if result.rowcount > 0:
+                print(f"Migration: changed {result.rowcount} PROCESSED → IN_SIGNAL")
+
+            result = conn.execute(text(
+                "UPDATE members SET status = 'NEEDS_FOLLOW_UP' WHERE status = 'UNSURE'"
+            ))
+            conn.commit()
+            if result.rowcount > 0:
+                print(f"Migration: changed {result.rowcount} UNSURE → NEEDS_FOLLOW_UP")
+
+            # --- Follow-up scheduling columns ---
+            if "vetted_at" not in existing_cols:
+                conn.execute(text("ALTER TABLE members ADD COLUMN vetted_at DATETIME"))
+                conn.commit()
+                print("Migration: added 'vetted_at' column to members table")
+                # Backfill: existing VETTED members anchor their one-month
+                # timer to their last update (best available estimate)
+                conn.execute(text(
+                    "UPDATE members SET vetted_at = updated_at WHERE status = 'VETTED' AND vetted_at IS NULL"
+                ))
+                conn.commit()
+
+            if "resting_since" not in existing_cols:
+                conn.execute(text("ALTER TABLE members ADD COLUMN resting_since DATETIME"))
+                conn.commit()
+                print("Migration: added 'resting_since' column to members table")
+                # Backfill: existing IN_SIGNAL members anchor their six-month
+                # timer to their last update
+                conn.execute(text(
+                    "UPDATE members SET resting_since = updated_at WHERE status = 'IN_SIGNAL' AND resting_since IS NULL"
+                ))
+                conn.commit()
+
+            if "one_month_followup_sent" not in existing_cols:
+                conn.execute(text(
+                    "ALTER TABLE members ADD COLUMN one_month_followup_sent BOOLEAN NOT NULL DEFAULT 0"
+                ))
+                conn.commit()
+                print("Migration: added 'one_month_followup_sent' column to members table")
+                # Don't retroactively ping the historical backlog: members
+                # vetted more than 30 days before this migration are exempted
+                # from the one-month follow-up. New vettings get the full flow.
+                result = conn.execute(text(
+                    "UPDATE members SET one_month_followup_sent = 1 "
+                    "WHERE status = 'VETTED' AND updated_at <= datetime('now', '-30 days')"
+                ))
+                conn.commit()
+                if result.rowcount > 0:
+                    print(f"Migration: exempted {result.rowcount} previously-vetted members from one-month follow-up")
 
 
 def initialize_app():
@@ -93,14 +152,33 @@ def initialize_app():
         db.close()
 
 
+FOLLOWUP_CHECK_INTERVAL_SECONDS = 3600  # hourly
+
+
+async def followup_scheduler():
+    """Periodically run follow-up checks (one-month and six-month pings).
+    Skips runs while the vault is locked (PII cannot be decrypted)."""
+    from app.services.followups import run_followup_checks
+    logger = logging.getLogger(__name__)
+    while True:
+        try:
+            if not (vault_mode_enabled() and not vault_manager.is_unlocked):
+                await asyncio.to_thread(run_followup_checks)
+        except Exception:
+            logger.exception("Follow-up check failed")
+        await asyncio.sleep(FOLLOWUP_CHECK_INTERVAL_SECONDS)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     if not vault_mode_enabled():
         # Direct mode: secrets already in env, start normally
         initialize_app()
+    scheduler_task = asyncio.create_task(followup_scheduler())
     yield
-    # Shutdown: cleanup if needed
+    # Shutdown: cleanup
+    scheduler_task.cancel()
 
 
 class LockMiddleware(BaseHTTPMiddleware):

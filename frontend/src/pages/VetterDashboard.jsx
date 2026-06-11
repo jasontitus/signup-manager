@@ -63,7 +63,6 @@ const VetterDashboard = () => {
   const assignedMembers = members.filter((m) => m.status === 'ASSIGNED');
   const vettedMembers = members.filter((m) => m.status === 'VETTED');
   const rejectedMembers = members.filter((m) => m.status === 'REJECTED');
-  const unsureMembers = members.filter((m) => m.status === 'UNSURE');
   const needsFollowUpMembers = members.filter((m) => m.status === 'NEEDS_FOLLOW_UP');
 
   return (
@@ -121,10 +120,6 @@ const VetterDashboard = () => {
               <p className="text-2xl font-bold text-green-600">{vettedMembers.length}</p>
             </div>
             <div className="bg-white p-4 rounded-lg shadow flex-1">
-              <p className="text-sm text-gray-600">Unsure</p>
-              <p className="text-2xl font-bold text-orange-600">{unsureMembers.length}</p>
-            </div>
-            <div className="bg-white p-4 rounded-lg shadow flex-1">
               <p className="text-sm text-gray-600">Follow-up</p>
               <p className="text-2xl font-bold text-pink-600">{needsFollowUpMembers.length}</p>
             </div>
@@ -144,10 +139,10 @@ const VetterDashboard = () => {
                 { value: '', label: 'All' },
                 { value: 'ASSIGNED', label: 'Assigned' },
                 { value: 'VETTED', label: 'Vetted' },
-                { value: 'UNSURE', label: 'Unsure' },
                 { value: 'NEEDS_FOLLOW_UP', label: 'Needs Follow-up' },
                 { value: 'REJECTED', label: 'Rejected' },
-                { value: 'PROCESSED', label: 'Processed' },
+                { value: 'IN_SIGNAL', label: 'In Signal' },
+                { value: 'DECLINED_SIGNAL', label: 'Declined Signal' },
               ]}
             />
           </div>

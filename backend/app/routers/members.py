@@ -1,5 +1,6 @@
 import csv
 import io
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -22,9 +23,21 @@ from app.schemas.member import (
 )
 from app.dependencies import get_current_user, require_admin, check_member_access, ADMIN_ROLES
 from app.services.audit import audit_service
+from app.services.notifications import notify_status_change
 from app.routers.auth import auto_assign_next_member, reclaim_stale_assignments
 
 router = APIRouter(prefix="/members", tags=["Members"])
+
+
+def apply_status_timestamps(member: Member, new_status: MemberStatus):
+    """Update follow-up scheduling anchors when a member's status changes.
+    VETTED starts the one-month follow-up timer; IN_SIGNAL (the resting
+    status) starts/restarts the recurring six-month follow-up timer."""
+    if new_status == MemberStatus.VETTED:
+        member.vetted_at = datetime.utcnow()
+        member.one_month_followup_sent = False
+    elif new_status == MemberStatus.IN_SIGNAL:
+        member.resting_since = datetime.utcnow()
 
 
 @router.get("", response_model=List[MemberResponse])
@@ -266,6 +279,7 @@ def bulk_update_status(
     for member in members:
         old_status = member.status
         member.status = update.status
+        apply_status_timestamps(member, update.status)
         audit_service.log_action(
             db=db,
             user_id=current_user.id,
@@ -285,6 +299,12 @@ def bulk_update_status(
     db.commit()
     for member in members:
         db.refresh(member)
+
+    # Single digest email for VETTED / NEEDS_FOLLOW_UP bulk changes
+    if update.status in (MemberStatus.VETTED, MemberStatus.NEEDS_FOLLOW_UP):
+        names = [f"{m.first_name} {m.last_name}" for m in members]
+        notify_status_change(names, update.status)
+
     return members
 
 
@@ -417,6 +437,7 @@ def update_member_status(
     if update.status:
         old_status = member.status
         member.status = update.status
+        apply_status_timestamps(member, update.status)
 
         # Log status change
         audit_service.log_action(
@@ -434,6 +455,10 @@ def update_member_status(
 
     db.commit()
     db.refresh(member)
+
+    # Email notification for VETTED / NEEDS_FOLLOW_UP (after commit, fire-and-forget)
+    if update.status in (MemberStatus.VETTED, MemberStatus.NEEDS_FOLLOW_UP):
+        notify_status_change([f"{member.first_name} {member.last_name}"], update.status)
 
     return member
 
