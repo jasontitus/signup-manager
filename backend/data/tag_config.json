@@ -31,7 +31,8 @@
         "Writer",
         "Musician",
         "Elected official",
-        "Management"
+        "Management",
+        "Student"
       ],
       "multiple": true
     },
@@ -48,7 +49,18 @@
         "DJ",
         "Management",
         "Organizational or leadership development",
-        "Finance"
+        "Finance",
+        "Advocacy"
+      ],
+      "multiple": true
+    },
+    {
+      "key": "institutional_affiliation",
+      "label": "Institutional affiliation",
+      "options": [
+        "Stanford student",
+        "Stanford faculty or staff",
+        "UC Berkeley"
       ],
       "multiple": true
     }
