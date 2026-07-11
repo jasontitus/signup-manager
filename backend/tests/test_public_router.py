@@ -53,15 +53,15 @@ def test_submit_with_custom_fields(client, db):
         "zip_code": "12345",
         "phone_number": "555-5678",
         "email": "bob@builder.com",
-        "occupational_background": "Construction",
-        "know_member": "Yes, Wendy",
-        "hoped_impact": "Build more things",
+        "skills_experience": "Construction",
+        "signal_channels": ["discussion", "bannering_101"],
     })
     assert resp.status_code == 201
 
     member = db.query(Member).filter(Member.id == resp.json()["application_id"]).first()
     custom = member.custom_fields
-    assert custom.get("occupational_background") == "Construction"
+    assert custom.get("skills_experience") == "Construction"
+    assert custom.get("signal_channels") == ["discussion", "bannering_101"]
 
 
 def test_submit_missing_required_field(client):

@@ -423,17 +423,47 @@ const MemberDetailPage = () => {
             {editingCustomFields ? (
               <div>
                 {/* Existing fields from form config */}
-                {formConfig && formConfig.fields.map((fieldConfig) => (
-                  <div key={fieldConfig.key} className="mb-4">
-                    <label className="text-sm text-gray-600 block mb-1">{fieldConfig.label}</label>
-                    <textarea
-                      value={editedFields[fieldConfig.key] || ''}
-                      onChange={(e) => setEditedFields((prev) => ({ ...prev, [fieldConfig.key]: e.target.value }))}
-                      rows="2"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    />
-                  </div>
-                ))}
+                {formConfig && formConfig.fields.map((fieldConfig) => {
+                  if (fieldConfig.type === 'checkbox') {
+                    const selected = Array.isArray(editedFields[fieldConfig.key])
+                      ? editedFields[fieldConfig.key]
+                      : [];
+                    return (
+                      <div key={fieldConfig.key} className="mb-4">
+                        <label className="text-sm text-gray-600 block mb-1">{fieldConfig.label}</label>
+                        <div className="space-y-1">
+                          {(fieldConfig.options || []).map((option) => (
+                            <label key={option.value} className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={selected.includes(option.value)}
+                                onChange={(e) => {
+                                  const next = e.target.checked
+                                    ? [...selected, option.value]
+                                    : selected.filter((v) => v !== option.value);
+                                  setEditedFields((prev) => ({ ...prev, [fieldConfig.key]: next }));
+                                }}
+                                className="mr-2"
+                              />
+                              <span className="text-sm text-gray-700">{option.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={fieldConfig.key} className="mb-4">
+                      <label className="text-sm text-gray-600 block mb-1">{fieldConfig.label}</label>
+                      <textarea
+                        value={editedFields[fieldConfig.key] || ''}
+                        onChange={(e) => setEditedFields((prev) => ({ ...prev, [fieldConfig.key]: e.target.value }))}
+                        rows="2"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                      />
+                    </div>
+                  );
+                })}
                 {/* Ad-hoc fields not in formConfig */}
                 {Object.entries(editedFields)
                   .filter(([key]) => !formConfig || !formConfig.fields.some((f) => f.key === key))
@@ -476,11 +506,16 @@ const MemberDetailPage = () => {
                   <>
                     {formConfig.fields.map((fieldConfig) => {
                       const value = member.custom_fields[fieldConfig.key];
-                      if (!value) return null;
+                      if (value == null || (Array.isArray(value) && value.length === 0) || value === '') return null;
+                      const displayValue = Array.isArray(value)
+                        ? value
+                            .map((v) => fieldConfig.options?.find((o) => o.value === v)?.label || v)
+                            .join(', ')
+                        : value;
                       return (
                         <div key={fieldConfig.key} className="mb-4">
                           <p className="text-sm text-gray-600">{fieldConfig.label}</p>
-                          <p className="font-medium whitespace-pre-wrap">{value}</p>
+                          <p className="font-medium whitespace-pre-wrap">{displayValue}</p>
                         </div>
                       );
                     })}
@@ -490,7 +525,9 @@ const MemberDetailPage = () => {
                       .map(([key, value]) => (
                         <div key={key} className="mb-4">
                           <p className="text-sm text-gray-600">{key}</p>
-                          <p className="font-medium whitespace-pre-wrap">{value}</p>
+                          <p className="font-medium whitespace-pre-wrap">
+                            {Array.isArray(value) ? value.join(', ') : value}
+                          </p>
                         </div>
                       ))}
                   </>

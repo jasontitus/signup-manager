@@ -4,23 +4,13 @@
   "description": "Thank you for your interest in joining the IPA+ Signal community! Our Signal members have full access to our activities and communications. Being on Signal allows you to receive updates and discuss what is happening with other members in real time.\n\nWe ask for the information below for safety purposes, as well as to understand which Signal channels would be most interesting for you.",
   "fields": [
     {
-      "key": "superpower",
-      "label": "What personal talent, skill, experience, or superpower do you bring to the group?",
-      "type": "textarea",
-      "placeholder": "We believe everyone has a superpower!",
-      "required": false,
-      "validation": {
-        "maxLength": 1000
-      }
-    },
-    {
-      "key": "occupational_background",
-      "label": "What is your occupational background? Feel free to share your LinkedIn if you like.",
+      "key": "skills_experience",
+      "label": "What personal skill or experience do you bring to the group? Everyone brings something! Feel free to share your LinkedIn profile if you like.",
       "type": "textarea",
       "placeholder": "This helps us connect people to each other and to understand the skills and experience in the group.",
       "required": false,
       "validation": {
-        "maxLength": 1000
+        "maxLength": 2000
       }
     },
     {
@@ -41,6 +31,25 @@
       "validation": {
         "maxLength": 500
       }
+    },
+    {
+      "key": "signal_channels",
+      "label": "Which of the following specialty Signal channels would you like to join, if any? Everyone is added to Announcements, Good News, Actions & Events, and Help Desk.",
+      "type": "checkbox",
+      "required": false,
+      "options": [
+        { "value": "discussion", "label": "Discussion (general discussion)" },
+        { "value": "have_and_need_board", "label": "Have and Need Board" },
+        { "value": "art_as_activism", "label": "Art as Activism" },
+        { "value": "bannering_101", "label": "Bannering 101" },
+        { "value": "billionaire_takedown_tesla", "label": "Billionaire Takedown at Tesla peaceful protest" },
+        { "value": "breaking_the_broligarchy", "label": "Breaking the Broligarchy (digital privacy)" },
+        { "value": "fire_flock", "label": "Fire Flock (oppose mass surveillance)" },
+        { "value": "immigrant_rights", "label": "Immigrant rights" },
+        { "value": "trans_advocacy_allyship", "label": "Trans Advocacy and Allyship" },
+        { "value": "turnout_troop", "label": "Turnout Troop (take back the House)" },
+        { "value": "youth_activism_support", "label": "Youth Activism Support" }
+      ]
     }
   ]
 }
