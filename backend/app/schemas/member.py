@@ -43,7 +43,7 @@ class BulkArchiveUpdate(BaseModel):
 
 class MemberCustomFieldsUpdate(BaseModel):
     """Schema for updating custom fields with merge semantics."""
-    custom_fields: Dict[str, str]
+    custom_fields: Dict[str, Any]
 
 
 class BulkStatusUpdate(BaseModel):
@@ -87,7 +87,7 @@ class MemberDetailResponse(BaseModel):
     zip_code: str
     phone_number: str
     email: str
-    custom_fields: Dict[str, str] = {}
+    custom_fields: Dict[str, Any] = {}
     status: MemberStatus
     archived: bool = False
     tags: Dict[str, Any] = {}

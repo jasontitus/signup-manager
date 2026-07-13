@@ -70,6 +70,17 @@ def test_get_member_detail_as_admin(client, db, admin_token):
     assert data["street_address"] == "123 Test St"
 
 
+def test_get_member_detail_with_list_custom_field(client, db, admin_token):
+    """Member detail loads when a custom field holds a list (e.g. checkbox group)."""
+    m = make_member(db, first_name="Trina", email="trina@test.com")
+    m.custom_fields = {"signal_channels": ["discussion", "bannering_101"]}
+    db.commit()
+
+    resp = client.get(f"/api/members/{m.id}", headers=auth_header(admin_token))
+    assert resp.status_code == 200
+    assert resp.json()["custom_fields"]["signal_channels"] == ["discussion", "bannering_101"]
+
+
 def test_get_member_logs_audit(client, db, admin_token, admin_user):
     """Viewing PII creates an audit log entry."""
     m = make_member(db, email="audit@test.com")
