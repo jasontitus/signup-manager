@@ -15,6 +15,11 @@ services:
       - .env
     environment:
       - DATABASE_URL=sqlite:////app/data/members.db
+      # Deliberately blank: dev/manual testing must never be able to send a real
+      # email through the production Resend key, no matter what .env contains.
+      # `environment:` always wins over `env_file:`, regardless of -f merge order.
+      - RESEND_API_KEY=
+      - NOTIFICATION_EMAIL=
 
   frontend:
     build:

@@ -66,6 +66,12 @@ cp .env.example .env
 
 ### 3. Development Setup
 
+`docker-compose.dev.yml` shares your `.env` for convenience, but always blanks out
+`RESEND_API_KEY` and `NOTIFICATION_EMAIL` — manually testing the app locally (or running
+the test suite) can never send a real email through your production Resend key. If you
+need to test email sending itself, temporarily put a Resend sandbox key directly in
+`docker-compose.dev.yml`'s `environment:` block (don't commit it).
+
 Start the development environment:
 
 ```bash
