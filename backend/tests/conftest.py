@@ -38,6 +38,13 @@ if not settings.ENCRYPTION_KEY:
     object.__setattr__(settings, "SECRET_KEY", "test-secret-key-for-jwt-signing-only")
     object.__setattr__(settings, "EMAIL_BLIND_INDEX_SALT", "test-salt-for-blind-index")
 
+# Tests share the real .env when run via `docker-compose run`, which includes a live
+# RESEND_API_KEY and real notification recipients. Unconditionally clear these so no
+# test run — regardless of who runs it or how .env is configured — can ever send a
+# real email to real people.
+object.__setattr__(settings, "RESEND_API_KEY", None)
+object.__setattr__(settings, "NOTIFICATION_EMAIL", None)
+
 try:
     encryption_service.initialize(settings.ENCRYPTION_KEY)
 except Exception:
