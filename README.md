@@ -222,6 +222,15 @@ Every PII access and assignment action is logged:
 
 View audit logs in the database `audit_logs` table.
 
+### Network & Abuse Protections
+
+- **Backend not directly exposed**: the backend only binds to `127.0.0.1:8000` on the host — all external traffic must go through the frontend nginx proxy, so it can't bypass the protections below.
+- **Rate limiting**: nginx throttles `/api/auth/login`, `/unlock`, and `/api/public/apply` per IP. The backend additionally locks out an IP+username pair after 5 failed login/unlock attempts for 15 minutes.
+- **Security headers & body size cap**: nginx sets `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and caps request bodies at 100kb.
+- **Input bounds**: form fields, login credentials, and notes all have server-side length limits to prevent oversized payloads reaching encryption/storage.
+- **CSV export injection guard**: exported cell values that start with `=`, `+`, `-`, `@`, tab, or CR are prefixed with `'` so Excel/Sheets can't execute them as formulas.
+- **Startup secret validation**: the app refuses to start (direct mode) or unlock (vault mode) if `SECRET_KEY`, `ENCRYPTION_KEY`, or `EMAIL_BLIND_INDEX_SALT` are missing, instead of silently running with degraded security.
+
 ### Automated Queue Management
 
 The system automatically manages the vetting queue to ensure candidates don't get stuck:
