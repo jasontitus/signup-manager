@@ -6,8 +6,6 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-FROM_ADDRESS = "Signup Manager <jason@tiltastech.com>"
-
 
 def send_notification(to: str, subject: str, text: str) -> bool:
     """Send a notification email. `to` may be comma-separated.
@@ -18,7 +16,7 @@ def send_notification(to: str, subject: str, text: str) -> bool:
     try:
         resend.api_key = settings.RESEND_API_KEY
         resend.Emails.send({
-            "from": FROM_ADDRESS,
+            "from": settings.EMAIL_FROM_ADDRESS,
             "to": [e.strip() for e in to.split(",") if e.strip()],
             "subject": subject,
             "text": text,

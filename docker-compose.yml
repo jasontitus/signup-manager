@@ -6,7 +6,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      # Bind to loopback only: all external traffic must go through the
+      # frontend nginx proxy, which enforces rate limits and headers.
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./backend/data:/app/data
     env_file:

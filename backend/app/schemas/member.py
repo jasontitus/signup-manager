@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 from typing import Optional, Dict, List, Any
 from app.models.member import MemberStatus
@@ -6,13 +6,13 @@ from app.models.member import MemberStatus
 
 class MemberCreate(BaseModel):
     """Schema for public application form submission (standard fields only)."""
-    first_name: str
-    last_name: str
-    street_address: str
-    city: str
-    zip_code: str
-    phone_number: str
-    email: EmailStr
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str = Field(min_length=1, max_length=100)
+    street_address: str = Field(min_length=1, max_length=200)
+    city: str = Field(min_length=1, max_length=100)
+    zip_code: str = Field(min_length=1, max_length=20)
+    phone_number: str = Field(min_length=1, max_length=30)
+    email: EmailStr = Field(max_length=254)
 
 
 class MemberUpdate(BaseModel):
@@ -22,7 +22,7 @@ class MemberUpdate(BaseModel):
 
 class MemberNote(BaseModel):
     """Schema for adding a note to a member."""
-    note: str
+    note: str = Field(min_length=1, max_length=10_000)
 
 
 class MemberTagsUpdate(BaseModel):

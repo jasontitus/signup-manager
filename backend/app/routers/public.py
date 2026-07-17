@@ -1,18 +1,23 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.member import Member, MemberStatus
 from app.schemas.member import MemberCreate
 from app.services.blind_index import generate_blind_index
+from app.services.notifications import send_notification
 from app.config import settings
 import json
 import logging
 import os
-import resend
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/public", tags=["Public"])
+
+# Upper bound for any single custom field value when the form config
+# doesn't specify its own maxLength (keeps unbounded payloads out of
+# the encrypted custom_fields blob).
+DEFAULT_MAX_FIELD_LENGTH = 5000
 
 # Path to configuration files
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
@@ -47,7 +52,11 @@ def get_tag_config():
 
 
 @router.post("/apply", status_code=status.HTTP_201_CREATED)
-def submit_application(application: dict, db: Session = Depends(get_db)):
+def submit_application(
+    application: dict,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     """Public endpoint for submitting membership applications."""
 
     # Load form config for validation
@@ -93,10 +102,10 @@ def submit_application(application: dict, db: Session = Depends(get_db)):
                 detail=f"{field_config['label']} is required"
             )
 
-        # Validate max length if specified
-        if value and 'validation' in field_config:
-            max_length = field_config['validation'].get('maxLength')
-            if max_length and len(str(value)) > max_length:
+        # Validate max length (config-specified, with a global fallback cap)
+        if value:
+            max_length = field_config.get('validation', {}).get('maxLength') or DEFAULT_MAX_FIELD_LENGTH
+            if len(str(value)) > max_length:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"{field_config['label']} exceeds maximum length of {max_length}"
@@ -121,25 +130,21 @@ def submit_application(application: dict, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(member)
 
-    # Send email notification (fire-and-forget)
-    if settings.RESEND_API_KEY and settings.NOTIFICATION_EMAIL:
-        try:
-            resend.api_key = settings.RESEND_API_KEY
-            pending_count = db.query(Member).filter(
-                Member.status == MemberStatus.PENDING
-            ).count()
-            resend.Emails.send({
-                "from": "Signup Manager <jason@tiltastech.com>",
-                "to": [e.strip() for e in settings.NOTIFICATION_EMAIL.split(",")],
-                "subject": "New member signup",
-                "text": (
-                    f"A new member has signed up from {standard_fields.city}! "
-                    f"There are {pending_count} potential members in the "
-                    f"queue to be vetted."
-                ),
-            })
-        except Exception as e:
-            logger.error(f"Failed to send signup notification email: {e}")
+    # Send email notification after the response, off the request path
+    if settings.NOTIFICATION_EMAIL:
+        pending_count = db.query(Member).filter(
+            Member.status == MemberStatus.PENDING
+        ).count()
+        background_tasks.add_task(
+            send_notification,
+            settings.NOTIFICATION_EMAIL,
+            "New member signup",
+            (
+                f"A new member has signed up from {standard_fields.city}! "
+                f"There are {pending_count} potential members in the "
+                f"queue to be vetted."
+            ),
+        )
 
     return {
         "message": "Application submitted successfully",

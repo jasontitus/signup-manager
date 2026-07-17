@@ -75,6 +75,16 @@ def create_tables():
 
 
 @pytest.fixture(autouse=True)
+def reset_rate_limiters():
+    """Reset failed-attempt throttling between tests so failed-login
+    tests can't trip the limiter for later tests."""
+    from app.services.rate_limit import login_limiter, unlock_limiter
+    login_limiter.reset()
+    unlock_limiter.reset()
+    yield
+
+
+@pytest.fixture(autouse=True)
 def clean_tables():
     """Clean all rows between tests for isolation."""
     yield

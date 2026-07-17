@@ -138,11 +138,26 @@ def run_migrations(db_engine):
                     print(f"Migration: exempted {result.rowcount} previously-vetted members from one-month follow-up")
 
 
+def validate_secrets():
+    """Refuse to start with missing security-critical secrets.
+    An empty SECRET_KEY would make every JWT forgeable; an empty
+    ENCRYPTION_KEY / blind-index salt silently degrades PII protection."""
+    missing = [
+        name for name in ("SECRET_KEY", "ENCRYPTION_KEY", "EMAIL_BLIND_INDEX_SALT")
+        if not getattr(settings, name)
+    ]
+    if missing:
+        raise RuntimeError(
+            f"Refusing to start: missing required secrets: {', '.join(missing)}. "
+            "Set them in .env (development) or create a vault with 'python vault.py create' (production)."
+        )
+
+
 def initialize_app():
     """Create tables, seed first admin, and initialize encryption.
     Called at startup (direct mode) or after vault unlock."""
-    if settings.ENCRYPTION_KEY:
-        encryption_service.initialize(settings.ENCRYPTION_KEY)
+    validate_secrets()
+    encryption_service.initialize(settings.ENCRYPTION_KEY)
     Base.metadata.create_all(bind=engine)
     run_migrations(engine)
     db = SessionLocal()
@@ -189,15 +204,8 @@ class LockMiddleware(BaseHTTPMiddleware):
         if not vault_mode_enabled() or vault_manager.is_unlocked:
             return await call_next(request)
 
-        path = request.url.path
-        if path in ("/api/unlock", "/api/health"):
+        if request.url.path in ("/api/unlock", "/api/health"):
             return await call_next(request)
-
-        if path.startswith("/api/"):
-            return JSONResponse(
-                {"detail": "Application is locked. Visit /unlock to enter the master password."},
-                status_code=503,
-            )
 
         return JSONResponse(
             {"detail": "Application is locked. Visit /unlock to enter the master password."},

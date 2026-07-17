@@ -26,9 +26,13 @@ def load_tag_config():
 
 
 def save_tag_config(config):
-    with open(TAG_CONFIG_PATH, "w") as f:
+    """Write the config atomically (temp file + rename) so a crash
+    mid-write can never leave a truncated/corrupt config file."""
+    tmp_path = TAG_CONFIG_PATH + ".tmp"
+    with open(tmp_path, "w") as f:
         json.dump(config, f, indent=2)
         f.write("\n")
+    os.replace(tmp_path, TAG_CONFIG_PATH)
 
 
 class CategoryCreate(BaseModel):
@@ -188,7 +192,9 @@ def get_option_usage(
             detail=f"Category '{key}' not found",
         )
 
-    members = db.query(Member).filter(Member.tags.isnot(None)).all()
+    # Filter on the raw column: the `tags` hybrid property has no SQL
+    # expression, so Member.tags cannot be used in a query.
+    members = db.query(Member).filter(Member._tags.isnot(None)).all()
     usage = {}
     for option in category["options"]:
         usage[option] = 0

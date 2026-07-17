@@ -5,11 +5,14 @@ and holds secrets in memory only.
 
 import base64
 import json
+import logging
 import os
 
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+logger = logging.getLogger(__name__)
 
 
 class VaultManager:
@@ -30,7 +33,10 @@ class VaultManager:
         return self._secrets.copy()
 
     def get_vault_path(self) -> str:
-        return os.environ.get("VAULT_FILE", "/app/data/.vault")
+        # Single source of truth: settings reads VAULT_FILE from the
+        # environment or .env, with the same default as before.
+        from app.config import settings
+        return settings.VAULT_FILE
 
     def vault_exists(self) -> bool:
         return os.path.exists(self.get_vault_path())
@@ -62,11 +68,20 @@ class VaultManager:
         try:
             fernet = Fernet(key)
             decrypted = fernet.decrypt(vault_data["data"].encode())
-            self._secrets = json.loads(decrypted)
-            self._unlocked = True
-            return True
-        except (InvalidToken, Exception):
+        except InvalidToken:
+            # Wrong master password (or tampered vault) — expected path
             return False
+
+        try:
+            self._secrets = json.loads(decrypted)
+        except ValueError:
+            # Password was right but the payload is corrupt — surface it
+            # instead of reporting "invalid password" to the operator.
+            logger.error("Vault decrypted but payload is not valid JSON — vault file is corrupt")
+            raise RuntimeError("Vault file is corrupt: decrypted payload is not valid JSON")
+
+        self._unlocked = True
+        return True
 
 
 vault_manager = VaultManager()

@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -10,6 +10,7 @@ from app.models.member import Member, MemberStatus
 from app.schemas.auth import LoginRequest, TokenResponse
 from app.services.auth import verify_password, create_access_token
 from app.services.audit import audit_service
+from app.services.rate_limit import login_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -98,17 +99,30 @@ def auto_assign_next_member(db: Session, vetter_id: int) -> Optional[Member]:
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(credentials: LoginRequest, db: Session = Depends(get_db)):
+def login(credentials: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """Authenticate user and return JWT token."""
+    client_ip = request.client.host if request.client else "unknown"
+    throttle_key = f"{client_ip}:{credentials.username.lower()}"
+
+    if login_limiter.is_blocked(throttle_key):
+        logger.warning("Login throttled for username=%r from %s", credentials.username, client_ip)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed login attempts. Try again later.",
+        )
+
     user = db.query(User).filter(func.lower(User.username) == credentials.username.lower()).first()
 
     if not user or not verify_password(credentials.password, user.hashed_password):
+        login_limiter.record_failure(throttle_key)
         logger.warning("Login failed for username=%r", credentials.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    login_limiter.record_success(throttle_key)
 
     if not user.is_active:
         logger.warning("Login attempt by inactive user=%r (id=%s)", user.username, user.id)

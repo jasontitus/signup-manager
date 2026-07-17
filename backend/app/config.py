@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     # Email notifications (Resend)
     RESEND_API_KEY: Optional[str] = None
     NOTIFICATION_EMAIL: Optional[str] = None
+    EMAIL_FROM_ADDRESS: str = "Signup Manager <jason@tiltastech.com>"
     # Notified when a member is marked vetted or needs follow-up
     VETTING_NOTIFICATION_EMAIL: str = "alex@indivisiblepaloaltoplus.org"
     # Notified for one-month / six-month follow-up pings

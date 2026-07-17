@@ -1,5 +1,6 @@
 import csv
 import io
+import logging
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import StreamingResponse
@@ -26,7 +27,18 @@ from app.services.audit import audit_service
 from app.services.notifications import notify_status_change
 from app.routers.auth import auto_assign_next_member, reclaim_stale_assignments
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/members", tags=["Members"])
+
+
+def escape_csv_formula(value: str) -> str:
+    """Neutralize spreadsheet formula injection: cells starting with
+    =, +, -, @, tab, or CR are prefixed with a single quote so Excel /
+    Sheets treat them as text instead of executing them."""
+    if value and value[0] in ("=", "+", "-", "@", "\t", "\r"):
+        return f"'{value}"
+    return value
 
 
 def apply_status_timestamps(member: Member, new_status: MemberStatus):
@@ -93,7 +105,7 @@ def search_members(
 
     # Get base query with RBAC filtering
     base_query = db.query(Member)
-    if current_user.role == UserRole.VETTER:
+    if current_user.role not in ADMIN_ROLES:
         base_query = base_query.filter(Member.assigned_vetter_id == current_user.id)
 
     # Notes are not encrypted — search via DB for efficiency
@@ -113,24 +125,25 @@ def search_members(
             matches.append(member)
             continue
 
-        # Search decrypted PII fields
-        if (q_lower in member.first_name.lower()
-                or q_lower in member.last_name.lower()
-                or q_lower in member.city.lower()
-                or q_lower in member.zip_code.lower()
-                or q_lower in member.street_address.lower()):
-            matches.append(member)
-            continue
-
-        # Search custom fields
+        # Search decrypted PII fields. One undecryptable row must not
+        # break search for everyone, so decryption errors skip the row.
         try:
+            if (q_lower in member.first_name.lower()
+                    or q_lower in member.last_name.lower()
+                    or q_lower in member.city.lower()
+                    or q_lower in member.zip_code.lower()
+                    or q_lower in member.street_address.lower()):
+                matches.append(member)
+                continue
+
+            # Search custom fields
             custom_fields = member.custom_fields
             for field_value in custom_fields.values():
                 if field_value and q_lower in str(field_value).lower():
                     matches.append(member)
                     break
-        except Exception as e:
-            print(f"Error searching custom fields for member {member.id}: {e}")
+        except Exception:
+            logger.exception("Error searching member %s; skipping row", member.id)
 
     # Sort by creation date (newest first)
     matches.sort(key=lambda m: m.created_at, reverse=True)
@@ -211,6 +224,10 @@ def export_members_csv(
     requested_fields = [f.strip() for f in fields.split(",") if f.strip() in EXPORTABLE_FIELDS]
     if not requested_fields:
         raise HTTPException(status_code=400, detail="No valid fields specified")
+    if sort_by not in EXPORTABLE_FIELDS:
+        raise HTTPException(status_code=400, detail="Invalid sort field")
+    if sort_order not in ("asc", "desc"):
+        raise HTTPException(status_code=400, detail="Invalid sort order")
 
     query = db.query(Member)
     if not include_archived:
@@ -246,7 +263,7 @@ def export_members_csv(
                 val = val.strftime("%Y-%m-%d %H:%M")
             elif val is None:
                 val = ""
-            row.append(str(val))
+            row.append(escape_csv_formula(str(val)))
         writer.writerow(row)
 
     audit_service.log_action(
@@ -380,6 +397,21 @@ def bulk_update_tags(
     return members
 
 
+@router.get("/queue-count")
+def get_queue_count(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get the count of PENDING members in the queue.
+    Available to vetters and admins.
+    """
+    count = db.query(Member).filter(Member.status == MemberStatus.PENDING).count()
+    return {"pending_count": count}
+
+
+# NOTE: keep all static /members/<path> routes above this one — the
+# /{member_id} path parameter otherwise captures them and returns 422.
 @router.get("/{member_id}", response_model=MemberDetailResponse)
 def get_member(
     member_id: int,
@@ -483,7 +515,6 @@ def add_member_note(
         )
 
     # Append note with timestamp and user
-    from datetime import datetime
     timestamp = datetime.utcnow().isoformat()
     new_note = f"[{timestamp}] {current_user.username}: {note_data.note}"
 
@@ -505,19 +536,6 @@ def add_member_note(
     db.refresh(member)
 
     return member
-
-
-@router.get("/queue-count")
-def get_queue_count(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get the count of PENDING members in the queue.
-    Available to vetters and admins.
-    """
-    count = db.query(Member).filter(Member.status == MemberStatus.PENDING).count()
-    return {"pending_count": count}
 
 
 @router.post("/next-candidate", response_model=Optional[MemberResponse])
@@ -682,18 +700,19 @@ def delete_member(
     if not member:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
 
-    # Log deletion before removing the member
-    audit_service.log_action(
-        db=db,
-        user_id=current_user.id,
-        member_id=member.id,
-        action="MEMBER_DELETED",
-        details=f"Admin deleted member {member.first_name} {member.last_name} (ID: {member.id})"
-    )
-
     # Delete related audit logs first (to handle foreign key constraint)
     from app.models.audit_log import AuditLog
     db.query(AuditLog).filter(AuditLog.member_id == member_id).delete()
+
+    # Log the deletion with member_id=None so this entry survives the
+    # purge of the member's own audit history above.
+    audit_service.log_action(
+        db=db,
+        user_id=current_user.id,
+        member_id=None,
+        action="MEMBER_DELETED",
+        details=f"Admin deleted member {member.first_name} {member.last_name} (ID: {member.id})"
+    )
 
     # Delete the member
     db.delete(member)

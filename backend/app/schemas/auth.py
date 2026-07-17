@@ -1,9 +1,11 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    # Generous bounds — just enough to stop megabyte-sized credential
+    # payloads from reaching bcrypt / the DB lookup.
+    username: str = Field(min_length=1, max_length=150)
+    password: str = Field(min_length=1, max_length=512)
 
 
 class TokenResponse(BaseModel):

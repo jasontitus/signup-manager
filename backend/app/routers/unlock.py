@@ -5,9 +5,10 @@ When the app is in vault mode (a .vault file exists), all other routes
 return 503 until the master password is entered here.
 """
 
-from fastapi import APIRouter, Form
+from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from app.services.rate_limit import unlock_limiter
 from app.vault import vault_manager
 
 router = APIRouter()
@@ -76,10 +77,19 @@ async def unlock_page():
 
 
 @router.post("/unlock")
-async def unlock(password: str = Form(...)):
+async def unlock(request: Request, password: str = Form(...)):
     """Decrypt the vault and initialize the application."""
     if vault_manager.is_unlocked:
         return RedirectResponse(url="/", status_code=303)
+
+    client_ip = request.client.host if request.client else "unknown"
+    if unlock_limiter.is_blocked(client_ip):
+        return HTMLResponse(
+            UNLOCK_HTML.format(
+                error='<div class="error">Too many failed attempts. Try again later.</div>'
+            ),
+            status_code=429,
+        )
 
     try:
         success = vault_manager.unlock(password)
@@ -90,8 +100,16 @@ async def unlock(password: str = Form(...)):
             ),
             status_code=500,
         )
+    except RuntimeError:
+        return HTMLResponse(
+            UNLOCK_HTML.format(
+                error='<div class="error">Vault file is corrupt. Restore it from backup or recreate it with: python vault.py create</div>'
+            ),
+            status_code=500,
+        )
 
     if not success:
+        unlock_limiter.record_failure(client_ip)
         return HTMLResponse(
             UNLOCK_HTML.format(
                 error='<div class="error">Invalid master password.</div>'
@@ -99,24 +117,16 @@ async def unlock(password: str = Form(...)):
             status_code=401,
         )
 
-    # Load secrets into settings and initialize the app
+    unlock_limiter.record_success(client_ip)
+
+    # Load secrets into settings and initialize the app (encryption,
+    # table creation, schema migrations, first-admin seeding) — the
+    # same startup path used in direct mode.
     from app.config import load_secrets_from_vault
-    from app.services.encryption import encryption_service
-    from app.database import engine, Base, SessionLocal
-    from app.utils.db_init import create_first_admin
+    from app.main import initialize_app
 
-    secrets = vault_manager.secrets
-    load_secrets_from_vault(secrets)
-
-    from app.config import settings
-    encryption_service.initialize(settings.ENCRYPTION_KEY)
-
-    Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
-    try:
-        create_first_admin(db)
-    finally:
-        db.close()
+    load_secrets_from_vault(vault_manager.secrets)
+    initialize_app()
 
     # 303 See Other — browser follows redirect with GET
     return RedirectResponse(url="/", status_code=303)

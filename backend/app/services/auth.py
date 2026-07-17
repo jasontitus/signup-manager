@@ -21,6 +21,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """Create a JWT access token."""
+    if not settings.SECRET_KEY:
+        raise RuntimeError("SECRET_KEY is not configured; cannot issue tokens")
     to_encode = data.copy()
 
     if expires_delta:
@@ -36,6 +38,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 def verify_token(token: str) -> Optional[dict]:
     """Verify and decode a JWT token."""
+    # Never validate against an empty key — tokens signed with "" would
+    # be trivially forgeable if the app were misconfigured.
+    if not settings.SECRET_KEY:
+        return None
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         return payload
