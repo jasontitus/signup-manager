@@ -44,6 +44,14 @@ const Header = ({ tabs, activeTab, onTabChange, rightContent }) => {
           <div className="flex-1" />
           {rightContent}
           <div className="flex items-center gap-3">
+            <a
+              href={`${import.meta.env.BASE_URL}staff-guide.html`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              Staff Guide
+            </a>
             {user && (
               <span className="text-xs text-gray-500">
                 {user.full_name}

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Staff Guide — Signup Manager</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+    color: #1f2937;
+    line-height: 1.6;
+  }
+  h1 { color: #4338ca; margin-bottom: 0.25rem; }
+  .subtitle { color: #6b7280; margin-top: 0; margin-bottom: 2rem; }
+  h2 {
+    margin-top: 2.5rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  h3 { color: #374151; }
+  ol, ul { padding-left: 1.4rem; }
+  li { margin-bottom: 0.5rem; }
+  code {
+    background: #f3f4f6;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  .back-link { display: inline-block; margin-bottom: 1.5rem; font-size: 0.9rem; }
+  strong { color: #111827; }
+</style>
+</head>
+<body>
+
+<a class="back-link" href="javascript:window.close()">&larr; Close this tab</a>
+
+<h1>Staff Guide</h1>
+<p class="subtitle">A plain-language guide for admins and vetters using the Signup Manager dashboard.</p>
+
+<h2>Member statuses, in order</h2>
+<ol>
+  <li><strong>Pending</strong> — just applied, waiting to be picked up by a vetter.</li>
+  <li><strong>Assigned</strong> — a vetter is currently reviewing this person.</li>
+  <li><strong>Vetted</strong> — approved. Starts the one-month follow-up timer (see below).</li>
+  <li><strong>Rejected</strong> — not approved.</li>
+  <li><strong>Needs Follow Up</strong> — a vetter flagged this person for a second look before a decision.</li>
+  <li><strong>In Signal</strong> — the person has actually been added to Signal. This is the normal "resting" state for an active member, and starts the six-month check-in timer.</li>
+  <li><strong>Declined Signal</strong> — they applied and were vetted, but decided not to join Signal after all.</li>
+  <li><strong>1-Month Followup</strong> / <strong>6-Month Followup</strong> — set automatically by the system (see below), not something you set by hand. After checking in with the person, move them back to Vetted (for a 1-month followup) or In Signal (for a 6-month followup).</li>
+</ol>
+
+<h2>The automated follow-up sequence</h2>
+<p>The system pings the follow-up contact automatically — you don't need to track this by hand:</p>
+<ul>
+  <li><strong>One month after someone is Vetted</strong>, they're automatically moved to "1-Month Followup" and an email goes out. This happens for <strong>everyone who was vetted</strong>, whether or not they've been added to Signal yet.</li>
+  <li><strong>Six months after someone enters "In Signal"</strong>, they're moved to "6-Month Followup" and an email goes out. This only applies to people <strong>actually on Signal</strong> — it's a recurring check-in for active members.</li>
+  <li>Moving someone back to "In Signal" after a 6-month check-in restarts the six-month clock, so people resurface for a check-in indefinitely as long as they stay active.</li>
+</ul>
+<p>So: the 1-month ping is about "did we ever get back to this person after vetting them," and the 6-month ping is about "are our active Signal members still doing okay."</p>
+
+<h2>Day-to-day tasks</h2>
+<ul>
+  <li><strong>Triage tab</strong>: see pending applications. Vetters are auto-assigned the oldest pending candidate on login, and the next one automatically after they finish (mark Vetted/Rejected) — the "Get Next Candidate" button requests one manually.</li>
+  <li><strong>Database tab</strong>: search/filter all members, edit tags, export to CSV.</li>
+  <li><strong>Tags</strong>: category-based labels (skills, interests, etc.) editable per member or in bulk from the Database tab.</li>
+  <li><strong>CSV Export</strong>: pick which columns you want, sort, and export — respects whatever filter is currently active. Every export is logged (who, when, how many rows).</li>
+  <li><strong>Stale assignments</strong>: if a vetter goes inactive, their assigned candidates are automatically returned to the pending queue after 7 days. Admins can also reclaim manually.</li>
+</ul>
+
+<h2>Customizing the signup form</h2>
+<p>Admins can add, remove, or edit the questions on the public signup form — ask an admin or whoever maintains the codebase, since this currently requires editing a config file rather than a form builder in the UI.</p>
+
+<h2>Getting help / reporting a bug</h2>
+<p>If something looks wrong (a page won't load, an email seems off, a member's data looks incorrect), report it with as much specific detail as you can: what you clicked, what you expected, what happened instead, and roughly when. That's usually enough to track down the cause quickly.</p>
+
+</body>
+</html>
