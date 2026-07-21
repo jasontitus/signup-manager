@@ -59,7 +59,7 @@
       "label": "Institutional affiliation",
       "options": [
         "Stanford student",
-        "Stanford faculty or staff",
+        "Stanford other",
         "UC Berkeley"
       ],
       "multiple": true
