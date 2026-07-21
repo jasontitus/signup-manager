@@ -50,6 +50,26 @@
         { "value": "turnout_troop", "label": "Turnout Troop (take back the House)" },
         { "value": "youth_activism_support", "label": "Youth Activism Support" }
       ]
+    },
+    {
+      "key": "newsletter_optin",
+      "label": "Would you like to be added to the IPA+ email newsletter distribution list?",
+      "type": "radio",
+      "required": false,
+      "options": [
+        { "value": "yes", "label": "Yes" },
+        { "value": "no", "label": "No" }
+      ]
+    },
+    {
+      "key": "newsletter_email",
+      "label": "If yes, what email address should we use for the newsletter?",
+      "type": "email",
+      "placeholder": "Leave blank if you said no above",
+      "required": false,
+      "validation": {
+        "maxLength": 254
+      }
     }
   ]
 }
