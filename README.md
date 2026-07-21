@@ -2,6 +2,10 @@
 
 A secure membership application portal with strict role-based access control, field-level PII encryption, and Docker deployment.
 
+> Looking for how to use the admin dashboard day-to-day (statuses, follow-ups, tags,
+> CSV export) rather than how to set up or develop the app? See the
+> [Staff Guide](STAFF_GUIDE.md).
+
 ## Features
 
 - **Field-level PII Encryption**: Email, phone, and address encrypted at rest using Fernet symmetric encryption
