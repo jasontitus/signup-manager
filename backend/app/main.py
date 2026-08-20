@@ -1,6 +1,3 @@
-import asyncio
-import logging
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -97,45 +94,25 @@ def run_migrations(db_engine):
             if result.rowcount > 0:
                 print(f"Migration: changed {result.rowcount} UNSURE → NEEDS_FOLLOW_UP")
 
-            # --- Follow-up scheduling columns ---
-            if "vetted_at" not in existing_cols:
-                conn.execute(text("ALTER TABLE members ADD COLUMN vetted_at DATETIME"))
-                conn.commit()
-                print("Migration: added 'vetted_at' column to members table")
-                # Backfill: existing VETTED members anchor their one-month
-                # timer to their last update (best available estimate)
-                conn.execute(text(
-                    "UPDATE members SET vetted_at = updated_at WHERE status = 'VETTED' AND vetted_at IS NULL"
-                ))
-                conn.commit()
+            # --- Remove automated follow-up pinging (July 2026) ---
+            # ONE_MONTH_FOLLOWUP / SIX_MONTH_FOLLOWUP statuses and their
+            # scheduling columns were removed (staff found the pings
+            # confusing). Any members still parked in those statuses are
+            # reverted to the status they were in before the automated
+            # transition fired.
+            result = conn.execute(text(
+                "UPDATE members SET status = 'VETTED' WHERE status = 'ONE_MONTH_FOLLOWUP'"
+            ))
+            conn.commit()
+            if result.rowcount > 0:
+                print(f"Migration: changed {result.rowcount} ONE_MONTH_FOLLOWUP → VETTED")
 
-            if "resting_since" not in existing_cols:
-                conn.execute(text("ALTER TABLE members ADD COLUMN resting_since DATETIME"))
-                conn.commit()
-                print("Migration: added 'resting_since' column to members table")
-                # Backfill: existing IN_SIGNAL members anchor their six-month
-                # timer to their last update
-                conn.execute(text(
-                    "UPDATE members SET resting_since = updated_at WHERE status = 'IN_SIGNAL' AND resting_since IS NULL"
-                ))
-                conn.commit()
-
-            if "one_month_followup_sent" not in existing_cols:
-                conn.execute(text(
-                    "ALTER TABLE members ADD COLUMN one_month_followup_sent BOOLEAN NOT NULL DEFAULT 0"
-                ))
-                conn.commit()
-                print("Migration: added 'one_month_followup_sent' column to members table")
-                # Don't retroactively ping the historical backlog: members
-                # vetted more than 30 days before this migration are exempted
-                # from the one-month follow-up. New vettings get the full flow.
-                result = conn.execute(text(
-                    "UPDATE members SET one_month_followup_sent = 1 "
-                    "WHERE status = 'VETTED' AND updated_at <= datetime('now', '-30 days')"
-                ))
-                conn.commit()
-                if result.rowcount > 0:
-                    print(f"Migration: exempted {result.rowcount} previously-vetted members from one-month follow-up")
+            result = conn.execute(text(
+                "UPDATE members SET status = 'IN_SIGNAL' WHERE status = 'SIX_MONTH_FOLLOWUP'"
+            ))
+            conn.commit()
+            if result.rowcount > 0:
+                print(f"Migration: changed {result.rowcount} SIX_MONTH_FOLLOWUP → IN_SIGNAL")
 
 
 def validate_secrets():
@@ -167,33 +144,13 @@ def initialize_app():
         db.close()
 
 
-FOLLOWUP_CHECK_INTERVAL_SECONDS = 3600  # hourly
-
-
-async def followup_scheduler():
-    """Periodically run follow-up checks (one-month and six-month pings).
-    Skips runs while the vault is locked (PII cannot be decrypted)."""
-    from app.services.followups import run_followup_checks
-    logger = logging.getLogger(__name__)
-    while True:
-        try:
-            if not (vault_mode_enabled() and not vault_manager.is_unlocked):
-                await asyncio.to_thread(run_followup_checks)
-        except Exception:
-            logger.exception("Follow-up check failed")
-        await asyncio.sleep(FOLLOWUP_CHECK_INTERVAL_SECONDS)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     if not vault_mode_enabled():
         # Direct mode: secrets already in env, start normally
         initialize_app()
-    scheduler_task = asyncio.create_task(followup_scheduler())
     yield
-    # Shutdown: cleanup
-    scheduler_task.cancel()
 
 
 class LockMiddleware(BaseHTTPMiddleware):

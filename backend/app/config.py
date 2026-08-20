@@ -28,8 +28,6 @@ class Settings(BaseSettings):
     EMAIL_FROM_ADDRESS: str = "Signup Manager <jason@tiltastech.com>"
     # Notified when a member is marked vetted or needs follow-up
     VETTING_NOTIFICATION_EMAIL: str = "alex@indivisiblepaloaltoplus.org"
-    # Notified for one-month / six-month follow-up pings
-    FOLLOWUP_NOTIFICATION_EMAIL: str = "hi@indivisiblepaloaltoplus.org"
 
     # Vault file path
     VAULT_FILE: str = "/app/data/.vault"

@@ -41,17 +41,6 @@ def escape_csv_formula(value: str) -> str:
     return value
 
 
-def apply_status_timestamps(member: Member, new_status: MemberStatus):
-    """Update follow-up scheduling anchors when a member's status changes.
-    VETTED starts the one-month follow-up timer; IN_SIGNAL (the resting
-    status) starts/restarts the recurring six-month follow-up timer."""
-    if new_status == MemberStatus.VETTED:
-        member.vetted_at = datetime.utcnow()
-        member.one_month_followup_sent = False
-    elif new_status == MemberStatus.IN_SIGNAL:
-        member.resting_since = datetime.utcnow()
-
-
 @router.get("", response_model=List[MemberResponse])
 def list_members(
     status_filter: Optional[MemberStatus] = Query(None),
@@ -296,7 +285,6 @@ def bulk_update_status(
     for member in members:
         old_status = member.status
         member.status = update.status
-        apply_status_timestamps(member, update.status)
         audit_service.log_action(
             db=db,
             user_id=current_user.id,
@@ -469,7 +457,6 @@ def update_member_status(
     if update.status:
         old_status = member.status
         member.status = update.status
-        apply_status_timestamps(member, update.status)
 
         # Log status change
         audit_service.log_action(

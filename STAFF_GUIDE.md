@@ -7,33 +7,16 @@ technical/setup documentation, see [README.md](README.md).
 
 1. **Pending** — just applied, waiting to be picked up by a vetter.
 2. **Assigned** — a vetter is currently reviewing this person.
-3. **Vetted** — approved. Starts the one-month follow-up timer (see below).
+3. **Vetted** — approved.
 4. **Rejected** — not approved.
 5. **Needs Follow Up** — a vetter flagged this person for a second look before a decision.
 6. **In Signal** — the person has actually been added to Signal. This is the normal
-   "resting" state for an active member, and starts the six-month check-in timer.
+   "resting" state for an active member.
 7. **Declined Signal** — they applied and were vetted, but decided not to join Signal
    after all.
-8. **1-Month Followup** / **6-Month Followup** — set automatically by the system (see
-   below), not something you set by hand. After checking in with the person, move them
-   back to Vetted (for a 1-month followup) or In Signal (for a 6-month followup).
 
-## The automated follow-up sequence
-
-The system pings the follow-up contact automatically — you don't need to track this by
-hand:
-
-- **One month after someone is Vetted**, they're automatically moved to
-  "1-Month Followup" and an email goes out. This happens for **everyone who was
-  vetted**, whether or not they've been added to Signal yet.
-- **Six months after someone enters "In Signal"**, they're moved to
-  "6-Month Followup" and an email goes out. This only applies to people **actually on
-  Signal** — it's a recurring check-in for active members.
-- Moving someone back to "In Signal" after a 6-month check-in restarts the six-month
-  clock, so people resurface for a check-in indefinitely as long as they stay active.
-
-So: the 1-month ping is about "did we ever get back to this person after vetting them,"
-and the 6-month ping is about "are our active Signal members still doing okay."
+There's no automated follow-up pinging — moving someone between statuses (e.g. from
+Vetted to In Signal once they've actually joined) is always a manual step.
 
 ## Day-to-day tasks
 

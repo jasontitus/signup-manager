@@ -523,8 +523,6 @@ const AdminDashboard = () => {
   const assignedMembers = members.filter((m) => m.status === 'ASSIGNED');
   const vettedMembers = members.filter((m) => m.status === 'VETTED');
   const needsFollowUpMembers = members.filter((m) => m.status === 'NEEDS_FOLLOW_UP');
-  const oneMonthFollowupMembers = members.filter((m) => m.status === 'ONE_MONTH_FOLLOWUP');
-  const sixMonthFollowupMembers = members.filter((m) => m.status === 'SIX_MONTH_FOLLOWUP');
   const rejectedMembers = members.filter((m) => m.status === 'REJECTED');
   const inSignalMembers = members.filter((m) => m.status === 'IN_SIGNAL');
   const declinedSignalMembers = members.filter((m) => m.status === 'DECLINED_SIGNAL');
@@ -536,11 +534,9 @@ const AdminDashboard = () => {
     ASSIGNED: 1,
     VETTED: 2,
     NEEDS_FOLLOW_UP: 3,
-    ONE_MONTH_FOLLOWUP: 4,
-    SIX_MONTH_FOLLOWUP: 5,
-    REJECTED: 6,
-    IN_SIGNAL: 7,
-    DECLINED_SIGNAL: 8,
+    REJECTED: 4,
+    IN_SIGNAL: 5,
+    DECLINED_SIGNAL: 6,
   };
 
   const sortMembers = (memberList) => {
@@ -725,8 +721,6 @@ const AdminDashboard = () => {
                 { key: 'ASSIGNED', label: 'Assigned', count: assignedMembers.length, bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-300', activeBg: 'bg-blue-200', ring: 'ring-blue-400' },
                 { key: 'VETTED', label: 'Vetted', count: vettedMembers.length, bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-300', activeBg: 'bg-green-200', ring: 'ring-green-400' },
                 { key: 'NEEDS_FOLLOW_UP', label: 'Follow-up', count: needsFollowUpMembers.length, bg: 'bg-pink-100', text: 'text-pink-800', border: 'border-pink-300', activeBg: 'bg-pink-200', ring: 'ring-pink-400' },
-                { key: 'ONE_MONTH_FOLLOWUP', label: '1-Mo Followup', count: oneMonthFollowupMembers.length, bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-orange-300', activeBg: 'bg-orange-200', ring: 'ring-orange-400' },
-                { key: 'SIX_MONTH_FOLLOWUP', label: '6-Mo Followup', count: sixMonthFollowupMembers.length, bg: 'bg-indigo-100', text: 'text-indigo-800', border: 'border-indigo-300', activeBg: 'bg-indigo-200', ring: 'ring-indigo-400' },
                 { key: 'REJECTED', label: 'Rejected', count: rejectedMembers.length, bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-300', activeBg: 'bg-red-200', ring: 'ring-red-400' },
                 { key: 'IN_SIGNAL', label: 'In Signal', count: inSignalMembers.length, bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-300', activeBg: 'bg-purple-200', ring: 'ring-purple-400' },
                 { key: 'DECLINED_SIGNAL', label: 'Declined Signal', count: declinedSignalMembers.length, bg: 'bg-stone-100', text: 'text-stone-700', border: 'border-stone-300', activeBg: 'bg-stone-200', ring: 'ring-stone-400' },
@@ -964,16 +958,12 @@ const AdminDashboard = () => {
                           ASSIGNED: 'bg-blue-100 text-blue-800',
                           VETTED: 'bg-green-100 text-green-800',
                           NEEDS_FOLLOW_UP: 'bg-pink-100 text-pink-800',
-                          ONE_MONTH_FOLLOWUP: 'bg-orange-100 text-orange-800',
-                          SIX_MONTH_FOLLOWUP: 'bg-indigo-100 text-indigo-800',
                           REJECTED: 'bg-red-100 text-red-800',
                           IN_SIGNAL: 'bg-purple-100 text-purple-800',
                           DECLINED_SIGNAL: 'bg-stone-100 text-stone-700',
                         };
                         const statusLabelMap = {
                           NEEDS_FOLLOW_UP: 'FOLLOW-UP',
-                          ONE_MONTH_FOLLOWUP: '1-MO FOLLOWUP',
-                          SIX_MONTH_FOLLOWUP: '6-MO FOLLOWUP',
                           IN_SIGNAL: 'IN SIGNAL',
                           DECLINED_SIGNAL: 'DECLINED SIGNAL',
                         };

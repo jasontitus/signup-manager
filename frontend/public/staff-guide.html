@@ -44,22 +44,13 @@
 <ol>
   <li><strong>Pending</strong> — just applied, waiting to be picked up by a vetter.</li>
   <li><strong>Assigned</strong> — a vetter is currently reviewing this person.</li>
-  <li><strong>Vetted</strong> — approved. Starts the one-month follow-up timer (see below).</li>
+  <li><strong>Vetted</strong> — approved.</li>
   <li><strong>Rejected</strong> — not approved.</li>
   <li><strong>Needs Follow Up</strong> — a vetter flagged this person for a second look before a decision.</li>
-  <li><strong>In Signal</strong> — the person has actually been added to Signal. This is the normal "resting" state for an active member, and starts the six-month check-in timer.</li>
+  <li><strong>In Signal</strong> — the person has actually been added to Signal. This is the normal "resting" state for an active member.</li>
   <li><strong>Declined Signal</strong> — they applied and were vetted, but decided not to join Signal after all.</li>
-  <li><strong>1-Month Followup</strong> / <strong>6-Month Followup</strong> — set automatically by the system (see below), not something you set by hand. After checking in with the person, move them back to Vetted (for a 1-month followup) or In Signal (for a 6-month followup).</li>
 </ol>
-
-<h2>The automated follow-up sequence</h2>
-<p>The system pings the follow-up contact automatically — you don't need to track this by hand:</p>
-<ul>
-  <li><strong>One month after someone is Vetted</strong>, they're automatically moved to "1-Month Followup" and an email goes out. This happens for <strong>everyone who was vetted</strong>, whether or not they've been added to Signal yet.</li>
-  <li><strong>Six months after someone enters "In Signal"</strong>, they're moved to "6-Month Followup" and an email goes out. This only applies to people <strong>actually on Signal</strong> — it's a recurring check-in for active members.</li>
-  <li>Moving someone back to "In Signal" after a 6-month check-in restarts the six-month clock, so people resurface for a check-in indefinitely as long as they stay active.</li>
-</ul>
-<p>So: the 1-month ping is about "did we ever get back to this person after vetting them," and the 6-month ping is about "are our active Signal members still doing okay."</p>
+<p>There's no automated follow-up pinging — moving someone between statuses (e.g. from Vetted to In Signal once they've actually joined) is always a manual step.</p>
 
 <h2>Day-to-day tasks</h2>
 <ul>

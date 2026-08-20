@@ -14,8 +14,6 @@ class MemberStatus(str, enum.Enum):
     VETTED = "VETTED"
     REJECTED = "REJECTED"
     NEEDS_FOLLOW_UP = "NEEDS_FOLLOW_UP"
-    ONE_MONTH_FOLLOWUP = "ONE_MONTH_FOLLOWUP"
-    SIX_MONTH_FOLLOWUP = "SIX_MONTH_FOLLOWUP"
     IN_SIGNAL = "IN_SIGNAL"
     DECLINED_SIGNAL = "DECLINED_SIGNAL"
 
@@ -52,13 +50,6 @@ class Member(Base):
 
     # Internal notes (not visible to applicant)
     notes = Column(Text, nullable=True)
-
-    # Follow-up scheduling: vetted_at anchors the one-month ping;
-    # resting_since (set whenever status becomes IN_SIGNAL) anchors the
-    # recurring six-month ping.
-    vetted_at = Column(DateTime, nullable=True)
-    resting_since = Column(DateTime, nullable=True)
-    one_month_followup_sent = Column(Boolean, default=False, nullable=False, server_default="0")
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

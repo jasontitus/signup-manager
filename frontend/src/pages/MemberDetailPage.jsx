@@ -14,8 +14,6 @@ const statusLabels = {
   VETTED: 'Approved',
   REJECTED: 'Rejected',
   NEEDS_FOLLOW_UP: 'Needs Follow-up',
-  ONE_MONTH_FOLLOWUP: '1-Month Followup',
-  SIX_MONTH_FOLLOWUP: '6-Month Followup',
   IN_SIGNAL: 'In Signal',
   DECLINED_SIGNAL: 'Declined Signal',
 };
@@ -26,8 +24,6 @@ const statusColors = {
   VETTED: 'bg-green-100 text-green-800 border-green-300',
   REJECTED: 'bg-red-100 text-red-800 border-red-300',
   NEEDS_FOLLOW_UP: 'bg-pink-100 text-pink-800 border-pink-300',
-  ONE_MONTH_FOLLOWUP: 'bg-orange-100 text-orange-800 border-orange-300',
-  SIX_MONTH_FOLLOWUP: 'bg-indigo-100 text-indigo-800 border-indigo-300',
   IN_SIGNAL: 'bg-purple-100 text-purple-800 border-purple-300',
   DECLINED_SIGNAL: 'bg-stone-100 text-stone-700 border-stone-300',
 };
