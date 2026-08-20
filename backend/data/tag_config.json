@@ -32,7 +32,9 @@
         "Musician",
         "Elected official",
         "Management",
-        "Student"
+        "Student",
+        "Attorney",
+        "Artist"
       ],
       "multiple": true
     },
