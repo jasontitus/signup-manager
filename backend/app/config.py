@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     EMAIL_FROM_ADDRESS: str = "Signup Manager <jason@tiltastech.com>"
     # Notified when a member is marked vetted or needs follow-up
     VETTING_NOTIFICATION_EMAIL: str = "alex@indivisiblepaloaltoplus.org"
+    # Bare "there is a new entry" alert on every new signup (comma-separated)
+    NEW_ENTRY_ALERT_EMAIL: Optional[str] = None
 
     # Vault file path
     VAULT_FILE: str = "/app/data/.vault"

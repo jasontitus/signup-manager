@@ -146,6 +146,16 @@ def submit_application(
             ),
         )
 
+    # Bare-bones alert, no details — separate recipient list from the
+    # detailed notification above
+    if settings.NEW_ENTRY_ALERT_EMAIL:
+        background_tasks.add_task(
+            send_notification,
+            settings.NEW_ENTRY_ALERT_EMAIL,
+            "New entry",
+            "There is a new entry.",
+        )
+
     return {
         "message": "Application submitted successfully",
         "application_id": member.id

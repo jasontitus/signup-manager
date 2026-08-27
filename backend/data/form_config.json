@@ -48,28 +48,17 @@
         { "value": "immigrant_rights", "label": "Immigrant rights" },
         { "value": "trans_advocacy_allyship", "label": "Trans Advocacy and Allyship" },
         { "value": "turnout_troop", "label": "Turnout Troop (take back the House)" },
-        { "value": "youth_activism_support", "label": "Youth Activism Support" }
+        { "value": "youth_activism_support", "label": "Youth Activism" }
       ]
     },
     {
-      "key": "newsletter_optin",
-      "label": "Would you like to be added to the IPA+ email newsletter distribution list?",
-      "type": "radio",
+      "key": "newsletter_optout",
+      "label": "",
+      "type": "checkbox",
       "required": false,
       "options": [
-        { "value": "yes", "label": "Yes" },
-        { "value": "no", "label": "No" }
+        { "value": "opt_out", "label": "We will also add you to the IPA+ email newsletter distribution. If you would prefer not to be added, please check here." }
       ]
-    },
-    {
-      "key": "newsletter_email",
-      "label": "If yes, what email address should we use for the newsletter?",
-      "type": "email",
-      "placeholder": "Leave blank if you said no above",
-      "required": false,
-      "validation": {
-        "maxLength": 254
-      }
     }
   ]
 }
