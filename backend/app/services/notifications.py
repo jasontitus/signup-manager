@@ -15,12 +15,20 @@ def send_notification(to: str, subject: str, text: str) -> bool:
         return False
     try:
         resend.api_key = settings.RESEND_API_KEY
-        resend.Emails.send({
+        recipients = [e.strip() for e in to.split(",") if e.strip()]
+        resp = resend.Emails.send({
             "from": settings.EMAIL_FROM_ADDRESS,
-            "to": [e.strip() for e in to.split(",") if e.strip()],
+            "to": recipients,
             "subject": subject,
             "text": text,
         })
+        # Log Resend's message id so a "never arrived" report can be looked up
+        # in the Resend dashboard (delivered / bounced / spam complaint).
+        email_id = resp.get("id") if isinstance(resp, dict) else resp
+        logging.getLogger("uvicorn.error").info(
+            "Notification %r handed to Resend for %d recipient(s), id=%s",
+            subject, len(recipients), email_id,
+        )
         return True
     except Exception as e:
         logger.error("Failed to send notification email %r to %s: %s", subject, to, e)

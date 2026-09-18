@@ -229,7 +229,7 @@ View audit logs in the database `audit_logs` table.
 ### Network & Abuse Protections
 
 - **Backend not directly exposed**: the backend only binds to `127.0.0.1:8000` on the host — all external traffic must go through the frontend nginx proxy, so it can't bypass the protections below.
-- **Rate limiting**: nginx throttles `/api/auth/login`, `/unlock`, and `/api/public/apply` per IP. The backend additionally locks out an IP+username pair after 5 failed login/unlock attempts for 15 minutes.
+- **Rate limiting**: the bundled nginx throttles `/api/auth/login`, `/unlock`, and `/api/public/apply` per IP, but only for traffic that goes through it. If a host reverse proxy routes `/api` straight to `127.0.0.1:8000` (as on the production Pi), those nginx limits don't apply; the backend's own limiter (5 failed login/unlock attempts per IP+username per 15 minutes) is what protects you. It relies on the proxy sending `X-Forwarded-For`; uvicorn trusts that header only from private/docker addresses (`--forwarded-allow-ips` in `backend/Dockerfile`).
 - **Security headers & body size cap**: nginx sets `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and caps request bodies at 100kb.
 - **Input bounds**: form fields, login credentials, and notes all have server-side length limits to prevent oversized payloads reaching encryption/storage.
 - **CSV export injection guard**: exported cell values that start with `=`, `+`, `-`, `@`, tab, or CR are prefixed with `'` so Excel/Sheets can't execute them as formulas.

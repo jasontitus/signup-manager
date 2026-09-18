@@ -22,4 +22,8 @@ RUN mkdir -p /app/data
 EXPOSE 8000
 
 # Run application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# X-Forwarded-For is honored only from the addresses in FORWARDED_ALLOW_IPS
+# (set in docker-compose.yml to the host reverse proxy's docker-gateway address).
+# Without it every user looks like one client, so the login/unlock throttles
+# become global lockouts.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]

@@ -16,6 +16,9 @@ services:
     environment:
       - DATABASE_URL=sqlite:////app/data/members.db
       - VAULT_FILE=/app/data/.vault
+      # Host reverse proxy reaches the backend from the docker gateway; trust its
+      # X-Forwarded-For so rate limits are per real client. Exact IPs only (no CIDR).
+      - FORWARDED_ALLOW_IPS=172.21.0.1
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
