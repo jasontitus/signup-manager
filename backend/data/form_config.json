@@ -44,7 +44,7 @@
         { "value": "bannering_101", "label": "Bannering 101" },
         { "value": "billionaire_takedown_tesla", "label": "Billionaire Takedown at Tesla peaceful protest" },
         { "value": "breaking_the_broligarchy", "label": "Breaking the Broligarchy (digital privacy)" },
-        { "value": "fire_flock", "label": "Fire Flock (oppose mass surveillance)" },
+        { "value": "fire_flock", "label": "IPA+ Safety Over Surveillance: Opposing mass surveillance and Automated License Plate Readers in our community" },
         { "value": "immigrant_rights", "label": "Immigrant rights" },
         { "value": "trans_advocacy_allyship", "label": "Trans Advocacy and Allyship" },
         { "value": "turnout_troop", "label": "Turnout Troop (take back the House)" },
@@ -54,10 +54,11 @@
     {
       "key": "newsletter_optout",
       "label": "",
+      "adminLabel": "Newsletter",
       "type": "checkbox",
       "required": false,
       "options": [
-        { "value": "opt_out", "label": "We will also add you to the IPA+ email newsletter distribution. If you would prefer not to be added, please check here." }
+        { "value": "opt_out", "label": "We will also add you to the IPA+ email newsletter distribution. If you would prefer not to be added, please check here.", "adminLabel": "OPTED OUT — do NOT add to the newsletter" }
       ]
     }
   ]

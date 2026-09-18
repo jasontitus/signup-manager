@@ -426,7 +426,7 @@ const MemberDetailPage = () => {
                       : [];
                     return (
                       <div key={fieldConfig.key} className="mb-4">
-                        <label className="text-sm text-gray-600 block mb-1">{fieldConfig.label}</label>
+                        <label className="text-sm text-gray-600 block mb-1">{fieldConfig.adminLabel || fieldConfig.label}</label>
                         <div className="space-y-1">
                           {(fieldConfig.options || []).map((option) => (
                             <label key={option.value} className="flex items-center">
@@ -441,7 +441,7 @@ const MemberDetailPage = () => {
                                 }}
                                 className="mr-2"
                               />
-                              <span className="text-sm text-gray-700">{option.label}</span>
+                              <span className="text-sm text-gray-700">{option.adminLabel || option.label}</span>
                             </label>
                           ))}
                         </div>
@@ -505,12 +505,15 @@ const MemberDetailPage = () => {
                       if (value == null || (Array.isArray(value) && value.length === 0) || value === '') return null;
                       const displayValue = Array.isArray(value)
                         ? value
-                            .map((v) => fieldConfig.options?.find((o) => o.value === v)?.label || v)
+                            .map((v) => {
+                              const opt = fieldConfig.options?.find((o) => o.value === v);
+                              return opt?.adminLabel || opt?.label || v;
+                            })
                             .join(', ')
                         : value;
                       return (
                         <div key={fieldConfig.key} className="mb-4">
-                          <p className="text-sm text-gray-600">{fieldConfig.label}</p>
+                          <p className="text-sm text-gray-600">{fieldConfig.adminLabel || fieldConfig.label}</p>
                           <p className="font-medium whitespace-pre-wrap">{displayValue}</p>
                         </div>
                       );
